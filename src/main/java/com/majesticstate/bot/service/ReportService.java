@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.majesticstate.bot.domain.ReportConfig;
 import com.majesticstate.bot.repository.ReportConfigRepository;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -218,8 +220,7 @@ public class ReportService {
             return embeds;
         }
 
-        EmbedBuilder current = new EmbedBuilder().setTitle(config.getName());
-        int currentLength = 0;
+        String footer = buildFooter(config);
         for (ReportSection section : sections) {
             List<Role> roles = resolveRoles(guild, section.getRoleIds());
             Map<Member, List<String>> memberRoles = collectMembersWithRoles(guild, roles);
@@ -248,27 +249,21 @@ public class ReportService {
             if (lines.isEmpty()) {
                 lines.add("_Нет участников с указанными ролями_");
             }
-            List<String> fieldChunks = splitFieldLines(lines, 1024);
-            for (int i = 0; i < fieldChunks.size(); i++) {
-                String name = i == 0 ? section.getTitle() : section.getTitle() + " (продолжение)";
-                String value = fieldChunks.get(i);
-                int addition = name.length() + value.length();
-                if (currentLength + addition > 5500 || current.getFields().size() >= 24) {
-                    embeds.add(current.build());
-                    current = new EmbedBuilder().setTitle(config.getName());
-                    currentLength = 0;
-                }
-                current.addField(name, value, false);
-                currentLength += addition;
+            List<String> descriptionChunks = splitDescriptionLines(lines, 4096);
+            for (int i = 0; i < descriptionChunks.size(); i++) {
+                String title = i == 0 ? section.getTitle() : section.getTitle() + " (продолжение)";
+                EmbedBuilder builder = new EmbedBuilder()
+                        .setAuthor(config.getName())
+                        .setTitle(title)
+                        .setDescription(descriptionChunks.get(i))
+                        .setFooter(footer);
+                embeds.add(builder.build());
             }
-        }
-        if (!current.getFields().isEmpty()) {
-            embeds.add(current.build());
         }
         return embeds;
     }
 
-    private List<String> splitFieldLines(List<String> lines, int maxLength) {
+    private List<String> splitDescriptionLines(List<String> lines, int maxLength) {
         List<String> chunks = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         for (String line : lines) {
@@ -321,5 +316,15 @@ public class ReportService {
             ids.add(fallbackId);
         }
         return ids;
+    }
+
+    private String buildFooter(ReportConfig config) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+                .withZone(ZoneId.systemDefault());
+        Instant lastRun = config.getLastRunAt() != null ? config.getLastRunAt() : Instant.now();
+        Instant nextRun = lastRun.plusSeconds(config.getIntervalMinutes() * 60L);
+        String updated = formatter.format(lastRun);
+        String next = formatter.format(nextRun);
+        return "Обновлено: " + updated + " | Следующее: [" + next + "]";
     }
 }

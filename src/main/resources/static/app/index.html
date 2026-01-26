@@ -883,8 +883,8 @@
             channelId: report.channelId,
             intervalMinutes: report.intervalMinutes,
             enabled: report.enabled,
-            sections: parseReportSections(report.rulesJson),
-            format: parseReportFormat(report.formatJson)
+            sections: parseReportSections(report.rulesJson, report.sections),
+            format: parseReportFormat(report.formatJson, report.format)
         };
         const response = await fetch(`/api/reports/${report.id}`, {
             method: 'PUT',
@@ -896,7 +896,10 @@
         }
     }
 
-    function parseReportSections(rulesJson) {
+    function parseReportSections(rulesJson, sections) {
+        if (Array.isArray(sections) && sections.length) {
+            return sections;
+        }
         if (!rulesJson) {
             return [];
         }
@@ -907,7 +910,14 @@
         }
     }
 
-    function parseReportFormat(formatJson) {
+    function parseReportFormat(formatJson, format) {
+        if (format && typeof format === 'object') {
+            return {
+                showRoleName: format.showRoleName ?? true,
+                showUserId: format.showUserId ?? true,
+                showMention: format.showMention ?? true
+            };
+        }
         if (!formatJson) {
             return { showRoleName: true, showUserId: true, showMention: true };
         }

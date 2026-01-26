@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:discord_report_bot}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USER:bot}
+    password: ${DB_PASSWORD:botpass}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+
+app:
+  discord:
+    token: ${DISCORD_TOKEN:}
+  report:
+    scheduler-interval-ms: ${REPORT_SCHEDULER_INTERVAL_MS:60000}

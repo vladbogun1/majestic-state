@@ -1,2 +1,2 @@
 ALTER TABLE report_configs
-    ADD COLUMN last_message_ids TEXT;
+    ADD COLUMN IF NOT EXISTS last_message_ids TEXT;

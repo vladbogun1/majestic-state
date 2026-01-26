@@ -11,6 +11,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
@@ -39,55 +41,9 @@ public class ReportService {
         this.botLogService = botLogService;
     }
 
-    public String buildReportContent(ReportConfig config) {
-        if (botManager.getJda().isEmpty()) {
-            return "⚠️ Bot is offline";
-        }
-        List<ReportSection> sections = parseSections(config.getRulesJson());
-        ReportFormat format = parseFormat(config.getFormatJson());
-
-        Guild guild = botManager.getJda().get().getGuildById(config.getGuildId());
-        if (guild == null) {
-            return "⚠️ Guild not found for config " + config.getName();
-        }
-
-        StringBuilder builder = new StringBuilder();
-        for (ReportSection section : sections) {
-            builder.append("**").append(section.getTitle()).append("**\n");
-            List<Role> roles = resolveRoles(guild, section.getRoleIds());
-            Map<Member, List<String>> memberRoles = collectMembersWithRoles(guild, roles);
-            int index = 1;
-            for (Map.Entry<Member, List<String>> entry : memberRoles.entrySet()) {
-                Member member = entry.getKey();
-                List<String> matchedRoleNames = entry.getValue();
-                builder.append(index).append(". ");
-                if (format.isShowMention()) {
-                    builder.append(member.getAsMention()).append(" ");
-                }
-                List<String> parts = new ArrayList<>();
-                if (format.isShowRoleName()) {
-                    parts.add(String.join(", ", matchedRoleNames));
-                }
-                parts.add(member.getEffectiveName());
-                if (format.isShowUserId()) {
-                    parts.add(member.getId());
-                }
-                builder.append(String.join(" | ", parts));
-                builder.append("\n");
-                index++;
-            }
-            if (memberRoles.isEmpty()) {
-                builder.append("_Нет участников с указанными ролями_\n");
-            }
-            builder.append("\n");
-        }
-        return builder.toString();
-    }
-
     @Transactional
     public void publishReport(ReportConfig config) {
-        String content = buildReportContent(config);
-        List<String> chunks = splitMessage(content, 1900);
+        List<MessageEmbed> embeds = buildReportEmbeds(config);
         TextChannel channel = resolveChannel(config);
         if (channel == null) {
             log.warn("Channel not found for report config {}", config.getId());
@@ -97,13 +53,13 @@ public class ReportService {
         }
 
         String messageId = config.getLastMessageId();
-        if (messageId != null && !messageId.isBlank() && chunks.size() == 1) {
+        if (messageId != null && !messageId.isBlank() && embeds.size() == 1) {
             try {
-                channel.editMessageById(messageId, chunks.getFirst()).queue(
+                channel.editMessageEmbedsById(messageId, embeds).queue(
                         success -> updateRunTimestamps(config, messageId),
                         error -> {
                             log.warn("Failed to edit message {}, sending new one", messageId, error);
-                            sendNewMessages(channel, config, chunks);
+                            sendNewMessages(channel, config, embeds);
                         }
                 );
                 return;
@@ -112,23 +68,25 @@ public class ReportService {
                 botLogService.log("WARN", "Failed to edit report message for " + config.getName());
             }
         }
-        sendNewMessages(channel, config, chunks);
+        sendNewMessages(channel, config, embeds);
     }
 
-    private void sendNewMessages(TextChannel channel, ReportConfig config, List<String> chunks) {
-        if (chunks.isEmpty()) {
+    private void sendNewMessages(TextChannel channel, ReportConfig config, List<MessageEmbed> embeds) {
+        if (embeds.isEmpty()) {
             updateRunTimestamps(config, null);
             return;
         }
-        sendChunk(channel, config, chunks, 0);
+        List<List<MessageEmbed>> batches = batchEmbeds(embeds, 10);
+        sendEmbedBatch(channel, config, batches, 0);
     }
 
-    private void sendChunk(TextChannel channel, ReportConfig config, List<String> chunks, int index) {
-        channel.sendMessage(chunks.get(index)).queue(message -> {
-            if (index == chunks.size() - 1) {
+    private void sendEmbedBatch(TextChannel channel, ReportConfig config, List<List<MessageEmbed>> batches, int index) {
+        List<MessageEmbed> batch = batches.get(index);
+        channel.sendMessageEmbeds(batch).queue(message -> {
+            if (index == batches.size() - 1) {
                 updateRunTimestamps(config, message.getId());
             } else {
-                sendChunk(channel, config, chunks, index + 1);
+                sendEmbedBatch(channel, config, batches, index + 1);
             }
         });
     }
@@ -199,13 +157,75 @@ public class ReportService {
         return members;
     }
 
-    private List<String> splitMessage(String content, int maxLength) {
-        List<String> chunks = new ArrayList<>();
-        if (content == null || content.isBlank()) {
-            return chunks;
+    private List<MessageEmbed> buildReportEmbeds(ReportConfig config) {
+        List<MessageEmbed> embeds = new ArrayList<>();
+        if (botManager.getJda().isEmpty()) {
+            embeds.add(new EmbedBuilder().setDescription("⚠️ Bot is offline").build());
+            return embeds;
         }
+        List<ReportSection> sections = parseSections(config.getRulesJson());
+        ReportFormat format = parseFormat(config.getFormatJson());
+
+        Guild guild = botManager.getJda().get().getGuildById(config.getGuildId());
+        if (guild == null) {
+            embeds.add(new EmbedBuilder().setDescription("⚠️ Guild not found for config " + config.getName()).build());
+            return embeds;
+        }
+
+        EmbedBuilder current = new EmbedBuilder().setTitle(config.getName());
+        int currentLength = 0;
+        for (ReportSection section : sections) {
+            List<Role> roles = resolveRoles(guild, section.getRoleIds());
+            Map<Member, List<String>> memberRoles = collectMembersWithRoles(guild, roles);
+            List<String> lines = new ArrayList<>();
+            int index = 1;
+            for (Map.Entry<Member, List<String>> entry : memberRoles.entrySet()) {
+                Member member = entry.getKey();
+                List<String> matchedRoleNames = entry.getValue();
+                StringBuilder line = new StringBuilder();
+                line.append(index).append(". ");
+                if (format.isShowMention()) {
+                    line.append(member.getAsMention()).append(" ");
+                }
+                List<String> parts = new ArrayList<>();
+                if (format.isShowRoleName()) {
+                    parts.add(String.join(", ", matchedRoleNames));
+                }
+                parts.add(member.getEffectiveName());
+                if (format.isShowUserId()) {
+                    parts.add(member.getId());
+                }
+                line.append(String.join(" | ", parts));
+                lines.add(line.toString());
+                index++;
+            }
+            if (lines.isEmpty()) {
+                lines.add("_Нет участников с указанными ролями_");
+            }
+            List<String> fieldChunks = splitFieldLines(lines, 1024);
+            for (int i = 0; i < fieldChunks.size(); i++) {
+                String name = i == 0 ? section.getTitle() : section.getTitle() + " (продолжение)";
+                String value = fieldChunks.get(i);
+                int addition = name.length() + value.length();
+                if (currentLength + addition > 5500 || current.getFields().size() >= 24) {
+                    embeds.add(current.build());
+                    current = new EmbedBuilder().setTitle(config.getName());
+                    currentLength = 0;
+                }
+                current.addField(name, value, false);
+                currentLength += addition;
+            }
+        }
+        if (!current.getFields().isEmpty()) {
+            embeds.add(current.build());
+        }
+        return embeds;
+    }
+
+    private List<String> splitFieldLines(List<String> lines, int maxLength) {
+        List<String> chunks = new ArrayList<>();
         StringBuilder current = new StringBuilder();
-        for (String line : content.split("\n")) {
+        for (String line : lines) {
             String append = line + "\n";
             if (current.length() + append.length() > maxLength) {
                 if (!current.isEmpty()) {
@@ -230,5 +250,14 @@ public class ReportService {
             chunks.add(current.toString());
         }
         return chunks;
+    }
+
+    private List<List<MessageEmbed>> batchEmbeds(List<MessageEmbed> embeds, int batchSize) {
+        List<List<MessageEmbed>> batches = new ArrayList<>();
+        for (int i = 0; i < embeds.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, embeds.size());
+            batches.add(embeds.subList(i, end));
+        }
+        return batches;
     }
 }

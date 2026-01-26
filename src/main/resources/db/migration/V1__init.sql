@@ -16,7 +16,6 @@ CREATE TABLE report_configs (
     format_json TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     last_message_id VARCHAR(32),
-    last_message_ids TEXT,
     last_run_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

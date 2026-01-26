@@ -87,6 +87,7 @@ public class ReportService {
     @Transactional
     public void publishReport(ReportConfig config) {
         String content = buildReportContent(config);
+        List<String> chunks = splitMessage(content, 1900);
         TextChannel channel = resolveChannel(config);
         if (channel == null) {
             log.warn("Channel not found for report config {}", config.getId());
@@ -96,13 +97,13 @@ public class ReportService {
         }
 
         String messageId = config.getLastMessageId();
-        if (messageId != null && !messageId.isBlank()) {
+        if (messageId != null && !messageId.isBlank() && chunks.size() == 1) {
             try {
-                channel.editMessageById(messageId, content).queue(
+                channel.editMessageById(messageId, chunks.getFirst()).queue(
                         success -> updateRunTimestamps(config, messageId),
                         error -> {
                             log.warn("Failed to edit message {}, sending new one", messageId, error);
-                            sendNewMessage(channel, config, content);
+                            sendNewMessages(channel, config, chunks);
                         }
                 );
                 return;
@@ -111,11 +112,25 @@ public class ReportService {
                 botLogService.log("WARN", "Failed to edit report message for " + config.getName());
             }
         }
-        sendNewMessage(channel, config, content);
+        sendNewMessages(channel, config, chunks);
     }
 
-    private void sendNewMessage(TextChannel channel, ReportConfig config, String content) {
-        channel.sendMessage(content).queue(message -> updateRunTimestamps(config, message.getId()));
+    private void sendNewMessages(TextChannel channel, ReportConfig config, List<String> chunks) {
+        if (chunks.isEmpty()) {
+            updateRunTimestamps(config, null);
+            return;
+        }
+        sendChunk(channel, config, chunks, 0);
+    }
+
+    private void sendChunk(TextChannel channel, ReportConfig config, List<String> chunks, int index) {
+        channel.sendMessage(chunks.get(index)).queue(message -> {
+            if (index == chunks.size() - 1) {
+                updateRunTimestamps(config, message.getId());
+            } else {
+                sendChunk(channel, config, chunks, index + 1);
+            }
+        });
     }
 
     private void updateRunTimestamps(ReportConfig config, String messageId) {
@@ -182,5 +197,38 @@ public class ReportService {
             members.put(member, matched);
         }
         return members;
+    }
+
+    private List<String> splitMessage(String content, int maxLength) {
+        List<String> chunks = new ArrayList<>();
+        if (content == null || content.isBlank()) {
+            return chunks;
+        }
+        StringBuilder current = new StringBuilder();
+        for (String line : content.split("\n")) {
+            String append = line + "\n";
+            if (current.length() + append.length() > maxLength) {
+                if (!current.isEmpty()) {
+                    chunks.add(current.toString());
+                    current = new StringBuilder();
+                }
+                if (append.length() > maxLength) {
+                    int start = 0;
+                    while (start < append.length()) {
+                        int end = Math.min(start + maxLength, append.length());
+                        chunks.add(append.substring(start, end));
+                        start = end;
+                    }
+                } else {
+                    current.append(append);
+                }
+            } else {
+                current.append(append);
+            }
+        }
+        if (!current.isEmpty()) {
+            chunks.add(current.toString());
+        }
+        return chunks;
     }
 }

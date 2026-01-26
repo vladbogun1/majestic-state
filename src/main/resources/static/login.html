@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Discord Report Bot - Вход</title>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background: #0f1117;
+            color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #1b1f2a;
+            padding: 32px;
+            border-radius: 16px;
+            width: 380px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+        }
+        h1 {
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #aab0c0;
+        }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            margin-top: 6px;
+            border-radius: 8px;
+            border: 1px solid #2f374a;
+            background: #12151f;
+            color: #fff;
+        }
+        button {
+            margin-top: 16px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #6f8cff, #9c6bff);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .hint {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #7b8295;
+        }
+        .error {
+            color: #ff6b6b;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1 id="title">Вход администратора</h1>
+    <form id="loginForm">
+        <label>Логин
+            <input type="text" name="username" required>
+        </label>
+        <label>Пароль
+            <input type="password" name="password" required>
+        </label>
+        <button type="submit">Войти</button>
+        <div class="error" id="loginError"></div>
+    </form>
+
+    <form id="registerForm" class="hidden">
+        <label>Логин
+            <input type="text" name="username" required>
+        </label>
+        <label>Пароль
+            <input type="password" name="password" required>
+        </label>
+        <button type="submit">Создать первого администратора</button>
+        <div class="error" id="registerError"></div>
+    </form>
+
+    <div class="hint">Первый запуск? Создайте администратора и настройте отчёты.</div>
+</div>
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const title = document.getElementById('title');
+
+    fetch('/api/bootstrap')
+        .then(res => res.json())
+        .then(data => {
+            if (!data.hasAdmins) {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                title.textContent = 'Создание администратора';
+            }
+        });
+
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        document.getElementById('loginError').textContent = '';
+        const payload = Object.fromEntries(new FormData(loginForm));
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            window.location.href = '/app/index.html';
+        } else {
+            const data = await response.json();
+            document.getElementById('loginError').textContent = data.error || 'Ошибка входа';
+        }
+    });
+
+    registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        document.getElementById('registerError').textContent = '';
+        const payload = Object.fromEntries(new FormData(registerForm));
+        const response = await fetch('/api/admins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            window.location.href = '/login.html';
+        } else {
+            const data = await response.json();
+            document.getElementById('registerError').textContent = data.error || 'Ошибка регистрации';
+        }
+    });
+</script>
+</body>
+</html>

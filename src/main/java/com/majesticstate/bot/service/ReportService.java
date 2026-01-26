@@ -52,23 +52,51 @@ public class ReportService {
             return;
         }
 
-        String messageId = config.getLastMessageId();
-        if (messageId != null && !messageId.isBlank() && embeds.size() == 1) {
+        List<String> previousMessageIds = parseMessageIds(config.getLastMessageIds(), config.getLastMessageId());
+        if (canEditMessages(previousMessageIds, embeds)) {
             try {
-                channel.editMessageEmbedsById(messageId, embeds).queue(
-                        success -> updateRunTimestamps(config, messageId),
-                        error -> {
-                            log.warn("Failed to edit message {}, sending new one", messageId, error);
-                            sendNewMessages(channel, config, embeds);
-                        }
-                );
+                editExistingMessages(channel, config, previousMessageIds, embeds, 0);
                 return;
             } catch (Exception ex) {
-                log.warn("Error editing message, sending new one", ex);
-                botLogService.log("WARN", "Failed to edit report message for " + config.getName());
+                log.warn("Error editing messages, sending new ones", ex);
+                botLogService.log("WARN", "Failed to edit report messages for " + config.getName());
             }
         }
+        if (!previousMessageIds.isEmpty()) {
+            deleteOldMessages(channel, previousMessageIds);
+        }
         sendNewMessages(channel, config, embeds);
+    }
+
+    private boolean canEditMessages(List<String> messageIds, List<MessageEmbed> embeds) {
+        return !messageIds.isEmpty() && messageIds.size() == embeds.size();
+    }
+
+    private void editExistingMessages(TextChannel channel,
+                                      ReportConfig config,
+                                      List<String> messageIds,
+                                      List<MessageEmbed> embeds,
+                                      int index) {
+        String messageId = messageIds.get(index);
+        channel.editMessageEmbedsById(messageId, List.of(embeds.get(index))).queue(
+                success -> {
+                    if (index == messageIds.size() - 1) {
+                        updateRunTimestamps(config, messageIds);
+                    } else {
+                        editExistingMessages(channel, config, messageIds, embeds, index + 1);
+                    }
+                },
+                error -> {
+                    log.warn("Failed to edit message {}, sending new ones", messageId, error);
+                    sendNewMessages(channel, config, embeds);
+                }
+        );
+    }
+
+    private void deleteOldMessages(TextChannel channel, List<String> messageIds) {
+        for (String messageId : messageIds) {
+            channel.deleteMessageById(messageId).queue();
+        }
     }
 
     private void sendNewMessages(TextChannel channel, ReportConfig config, List<MessageEmbed> embeds) {
@@ -77,16 +105,21 @@ public class ReportService {
             return;
         }
         List<List<MessageEmbed>> batches = batchEmbeds(embeds, 10);
-        sendEmbedBatch(channel, config, batches, 0);
+        sendEmbedBatch(channel, config, batches, 0, new ArrayList<>());
     }
 
-    private void sendEmbedBatch(TextChannel channel, ReportConfig config, List<List<MessageEmbed>> batches, int index) {
+    private void sendEmbedBatch(TextChannel channel,
+                                ReportConfig config,
+                                List<List<MessageEmbed>> batches,
+                                int index,
+                                List<String> messageIds) {
         List<MessageEmbed> batch = batches.get(index);
         channel.sendMessageEmbeds(batch).queue(message -> {
+            messageIds.add(message.getId());
             if (index == batches.size() - 1) {
-                updateRunTimestamps(config, message.getId());
+                updateRunTimestamps(config, messageIds);
             } else {
-                sendEmbedBatch(channel, config, batches, index + 1);
+                sendEmbedBatch(channel, config, batches, index + 1, messageIds);
             }
         });
     }
@@ -97,7 +130,20 @@ public class ReportService {
         managed.setUpdatedAt(Instant.now());
         if (messageId != null) {
             managed.setLastMessageId(messageId);
+            managed.setLastMessageIds(messageId);
+        } else {
+            managed.setLastMessageIds(null);
         }
+        reportConfigRepository.save(managed);
+    }
+
+    private void updateRunTimestamps(ReportConfig config, List<String> messageIds) {
+        ReportConfig managed = reportConfigRepository.findById(config.getId()).orElse(config);
+        managed.setLastRunAt(Instant.now());
+        managed.setUpdatedAt(Instant.now());
+        String joined = String.join(",", messageIds);
+        managed.setLastMessageIds(joined);
+        managed.setLastMessageId(messageIds.isEmpty() ? null : messageIds.get(messageIds.size() - 1));
         reportConfigRepository.save(managed);
     }
 
@@ -259,5 +305,21 @@ public class ReportService {
             batches.add(embeds.subList(i, end));
         }
         return batches;
+    }
+
+    private List<String> parseMessageIds(String storedIds, String fallbackId) {
+        List<String> ids = new ArrayList<>();
+        if (storedIds != null && !storedIds.isBlank()) {
+            for (String raw : storedIds.split(",")) {
+                String trimmed = raw.trim();
+                if (!trimmed.isEmpty()) {
+                    ids.add(trimmed);
+                }
+            }
+        }
+        if (ids.isEmpty() && fallbackId != null && !fallbackId.isBlank()) {
+            ids.add(fallbackId);
+        }
+        return ids;
     }
 }

@@ -39,6 +39,9 @@ public class ReportConfig {
     @Column(name = "last_message_id")
     private String lastMessageId;
 
+    @Column(name = "last_message_ids", columnDefinition = "TEXT")
+    private String lastMessageIds;
+
     @Column(name = "last_run_at")
     private Instant lastRunAt;
 
@@ -114,6 +117,14 @@ public class ReportConfig {
 
     public void setLastMessageId(String lastMessageId) {
         this.lastMessageId = lastMessageId;
+    }
+
+    public String getLastMessageIds() {
+        return lastMessageIds;
+    }
+
+    public void setLastMessageIds(String lastMessageIds) {
+        this.lastMessageIds = lastMessageIds;
     }
 
     public Instant getLastRunAt() {

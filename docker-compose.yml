@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: majestic-report-db
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Moscow
+      MYSQL_DATABASE: ${DB_NAME:-discord_report_bot}
+      MYSQL_USER: ${DB_USER:-bot}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-botpass}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone=+00:00
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3320:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  bot:
+    image: ${DOCKER_IMAGE:-majestic-report-bot:latest}
+    container_name: majestic-report-bot
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Moscow
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-discord_report_bot}
+      DB_USER: ${DB_USER:-bot}
+      DB_PASSWORD: ${DB_PASSWORD:-botpass}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75}
+    ports:
+      - "8088:8080"
+
+volumes:
+  mysql_data:

@@ -11,19 +11,25 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class DiscordService {
-    private final JDA jda;
+    private final DiscordBotManager botManager;
 
-    public DiscordService(JDA jda) {
-        this.jda = jda;
+    public DiscordService(DiscordBotManager botManager) {
+        this.botManager = botManager;
     }
 
     public List<Guild> listGuilds() {
-        return jda.getGuilds().stream()
+        return botManager.getJda()
+                .map(jda -> jda.getGuilds().stream()
                 .sorted(Comparator.comparing(Guild::getName, String.CASE_INSENSITIVE_ORDER))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()))
+                .orElseGet(List::of);
     }
 
     public List<TextChannel> listTextChannels(String guildId) {
+        JDA jda = botManager.getJda().orElse(null);
+        if (jda == null) {
+            return List.of();
+        }
         Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
             return List.of();
@@ -34,6 +40,10 @@ public class DiscordService {
     }
 
     public List<Role> listRoles(String guildId) {
+        JDA jda = botManager.getJda().orElse(null);
+        if (jda == null) {
+            return List.of();
+        }
         Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
             return List.of();

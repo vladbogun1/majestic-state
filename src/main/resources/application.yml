@@ -16,7 +16,5 @@ spring:
     enabled: true
 
 app:
-  discord:
-    token: ${DISCORD_TOKEN:}
   report:
     scheduler-interval-ms: ${REPORT_SCHEDULER_INTERVAL_MS:60000}

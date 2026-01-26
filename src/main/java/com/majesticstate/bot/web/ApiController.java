@@ -2,9 +2,13 @@ package com.majesticstate.bot.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.majesticstate.bot.domain.AdminUser;
+import com.majesticstate.bot.domain.BotSettings;
 import com.majesticstate.bot.domain.ReportConfig;
 import com.majesticstate.bot.repository.ReportConfigRepository;
 import com.majesticstate.bot.service.AdminService;
+import com.majesticstate.bot.service.BotLogService;
+import com.majesticstate.bot.service.BotSettingsService;
+import com.majesticstate.bot.service.DiscordBotManager;
 import com.majesticstate.bot.service.DiscordService;
 import com.majesticstate.bot.service.PasswordService;
 import com.majesticstate.bot.service.ReportFormat;
@@ -42,6 +46,9 @@ public class ApiController {
     private final DiscordService discordService;
     private final ReportConfigRepository reportRepository;
     private final ReportService reportService;
+    private final BotSettingsService botSettingsService;
+    private final DiscordBotManager botManager;
+    private final BotLogService botLogService;
     private final ObjectMapper objectMapper;
 
     public ApiController(AdminService adminService,
@@ -49,12 +56,18 @@ public class ApiController {
                          DiscordService discordService,
                          ReportConfigRepository reportRepository,
                          ReportService reportService,
+                         BotSettingsService botSettingsService,
+                         DiscordBotManager botManager,
+                         BotLogService botLogService,
                          ObjectMapper objectMapper) {
         this.adminService = adminService;
         this.passwordService = passwordService;
         this.discordService = discordService;
         this.reportRepository = reportRepository;
         this.reportService = reportService;
+        this.botSettingsService = botSettingsService;
+        this.botManager = botManager;
+        this.botLogService = botLogService;
         this.objectMapper = objectMapper;
     }
 
@@ -153,6 +166,43 @@ public class ApiController {
     public List<ReportSummary> listReports() {
         return reportRepository.findAll().stream()
                 .map(this::toSummary)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/bot/settings")
+    public BotSettingsResponse botSettings() {
+        BotSettings settings = botSettingsService.getSettings();
+        return new BotSettingsResponse(settings.getToken(), settings.isEnabled(), botManager.isRunning());
+    }
+
+    @PutMapping("/bot/settings")
+    public ResponseEntity<?> updateBotSettings(@Valid @RequestBody BotSettingsRequest request) {
+        BotSettings updated = botSettingsService.updateSettings(request.token(), request.enabled());
+        if (botManager.isRunning() && request.restartIfRunning()) {
+            botManager.stopBot();
+            botManager.startBot(updated.getToken());
+        }
+        return ResponseEntity.ok(new BotSettingsResponse(updated.getToken(), updated.isEnabled(), botManager.isRunning()));
+    }
+
+    @PostMapping("/bot/start")
+    public ResponseEntity<?> startBot() {
+        BotSettings settings = botSettingsService.updateEnabled(true);
+        botManager.startBot(settings.getToken());
+        return ResponseEntity.ok(new BotSettingsResponse(settings.getToken(), settings.isEnabled(), botManager.isRunning()));
+    }
+
+    @PostMapping("/bot/stop")
+    public ResponseEntity<?> stopBot() {
+        BotSettings settings = botSettingsService.updateEnabled(false);
+        botManager.stopBot();
+        return ResponseEntity.ok(new BotSettingsResponse(settings.getToken(), settings.isEnabled(), botManager.isRunning()));
+    }
+
+    @GetMapping("/bot/logs")
+    public List<BotLogResponse> botLogs() {
+        return botLogService.latest(200).stream()
+                .map(entry -> new BotLogResponse(entry.getLevel(), entry.getMessage(), entry.getCreatedAt()))
                 .collect(Collectors.toList());
     }
 
@@ -265,5 +315,14 @@ public class ApiController {
             String lastMessageId,
             Instant lastRunAt
     ) {
+    }
+
+    public record BotSettingsRequest(@NotNull String token, boolean enabled, boolean restartIfRunning) {
+    }
+
+    public record BotSettingsResponse(String token, boolean enabled, boolean running) {
+    }
+
+    public record BotLogResponse(String level, String message, Instant createdAt) {
     }
 }

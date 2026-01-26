@@ -16,14 +16,19 @@ public class ReportScheduler {
 
     private final ReportConfigRepository repository;
     private final ReportService reportService;
+    private final DiscordBotManager botManager;
 
-    public ReportScheduler(ReportConfigRepository repository, ReportService reportService) {
+    public ReportScheduler(ReportConfigRepository repository, ReportService reportService, DiscordBotManager botManager) {
         this.repository = repository;
         this.reportService = reportService;
+        this.botManager = botManager;
     }
 
     @Scheduled(fixedDelayString = "${app.report.scheduler-interval-ms:60000}")
     public void runReports() {
+        if (!botManager.isRunning()) {
+            return;
+        }
         List<ReportConfig> configs = repository.findAll();
         Instant now = Instant.now();
         for (ReportConfig config : configs) {

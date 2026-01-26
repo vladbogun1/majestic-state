@@ -11,7 +11,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
@@ -25,21 +24,29 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportService {
     private static final Logger log = LoggerFactory.getLogger(ReportService.class);
 
-    private final JDA jda;
+    private final DiscordBotManager botManager;
     private final ObjectMapper objectMapper;
     private final ReportConfigRepository reportConfigRepository;
+    private final BotLogService botLogService;
 
-    public ReportService(JDA jda, ObjectMapper objectMapper, ReportConfigRepository reportConfigRepository) {
-        this.jda = jda;
+    public ReportService(DiscordBotManager botManager,
+                         ObjectMapper objectMapper,
+                         ReportConfigRepository reportConfigRepository,
+                         BotLogService botLogService) {
+        this.botManager = botManager;
         this.objectMapper = objectMapper;
         this.reportConfigRepository = reportConfigRepository;
+        this.botLogService = botLogService;
     }
 
     public String buildReportContent(ReportConfig config) {
+        if (botManager.getJda().isEmpty()) {
+            return "⚠️ Bot is offline";
+        }
         List<ReportSection> sections = parseSections(config.getRulesJson());
         ReportFormat format = parseFormat(config.getFormatJson());
 
-        Guild guild = jda.getGuildById(config.getGuildId());
+        Guild guild = botManager.getJda().get().getGuildById(config.getGuildId());
         if (guild == null) {
             return "⚠️ Guild not found for config " + config.getName();
         }
@@ -83,6 +90,7 @@ public class ReportService {
         TextChannel channel = resolveChannel(config);
         if (channel == null) {
             log.warn("Channel not found for report config {}", config.getId());
+            botLogService.log("WARN", "Channel not found for report config " + config.getName());
             updateRunTimestamps(config, null);
             return;
         }
@@ -100,6 +108,7 @@ public class ReportService {
                 return;
             } catch (Exception ex) {
                 log.warn("Error editing message, sending new one", ex);
+                botLogService.log("WARN", "Failed to edit report message for " + config.getName());
             }
         }
         sendNewMessage(channel, config, content);
@@ -120,7 +129,10 @@ public class ReportService {
     }
 
     private TextChannel resolveChannel(ReportConfig config) {
-        Guild guild = jda.getGuildById(config.getGuildId());
+        if (botManager.getJda().isEmpty()) {
+            return null;
+        }
+        Guild guild = botManager.getJda().get().getGuildById(config.getGuildId());
         if (guild == null) {
             return null;
         }

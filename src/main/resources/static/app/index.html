@@ -12,6 +12,9 @@
             --accent-strong: #b678ff;
             --text: #f5f5f5;
             --muted: #9aa3b2;
+            --success: #2dd4bf;
+            --danger: #f97316;
+            --info: #60a5fa;
         }
         body {
             margin: 0;
@@ -93,18 +96,6 @@
             border-radius: 12px;
             padding: 12px;
         }
-        .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 8px;
-        }
-        .tag {
-            background: #2e3650;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-        }
         .reports {
             display: grid;
             gap: 12px;
@@ -151,6 +142,72 @@
             border-radius: 999px;
             font-size: 12px;
         }
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .tab {
+            background: #1c2130;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .tab.active {
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            color: #fff;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: #1c2130;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+        .status-dot.online {
+            background: var(--success);
+        }
+        .log-list {
+            display: grid;
+            gap: 10px;
+        }
+        .log-item {
+            background: #1c2130;
+            border-radius: 12px;
+            padding: 12px;
+            border-left: 4px solid var(--info);
+        }
+        .log-item.warn {
+            border-left-color: var(--danger);
+        }
+        .log-item.error {
+            border-left-color: #ef4444;
+        }
+        .log-item.info {
+            border-left-color: var(--info);
+        }
+        .log-level {
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
     </style>
 </head>
 <body>
@@ -190,60 +247,100 @@
     </div>
 
     <div class="card">
-        <h2>Конструктор отчётов</h2>
-        <form id="reportForm">
-            <div class="inline">
-                <label>Название
-                    <input type="text" name="name" required>
-                </label>
-                <label>Интервал (мин.)
-                    <input type="number" name="intervalMinutes" min="1" value="60" required>
-                </label>
+        <div class="tabs">
+            <div class="tab active" data-tab="bot">Бот</div>
+            <div class="tab" data-tab="reports">Отчёты</div>
+            <div class="tab" data-tab="logs">Логи</div>
+        </div>
+
+        <div class="tab-panel active" id="tab-bot">
+            <h2>Управление ботом</h2>
+            <div class="status-chip">
+                <span class="status-dot" id="botStatusDot"></span>
+                <span id="botStatusText">Бот выключен</span>
             </div>
-            <label>Discord сервер
-                <select name="guildId" id="guildSelect" required></select>
-            </label>
-            <label>Канал для отчёта
-                <select name="channelId" id="channelSelect" required></select>
-            </label>
-            <div class="inline">
-                <label>Показывать роль
-                    <select name="showRoleName" id="showRoleName">
-                        <option value="true">Да</option>
-                        <option value="false">Нет</option>
-                    </select>
+            <form id="botSettingsForm">
+                <label>Discord Token
+                    <input type="password" name="token" id="botToken" required>
                 </label>
-                <label>Показывать ID
-                    <select name="showUserId" id="showUserId">
-                        <option value="true">Да</option>
-                        <option value="false">Нет</option>
-                    </select>
+                <label>
+                    <input type="checkbox" id="botAutoStart">
+                    Автозапускать после перезапуска
                 </label>
-                <label>Показывать упоминание
-                    <select name="showMention" id="showMention">
-                        <option value="true">Да</option>
-                        <option value="false">Нет</option>
-                    </select>
+                <label>
+                    <input type="checkbox" id="botRestartIfRunning" checked>
+                    Перезапустить бот при сохранении
                 </label>
-            </div>
+                <div class="inline">
+                    <button type="submit">Сохранить настройки</button>
+                    <button type="button" class="secondary" id="startBotBtn">Запустить</button>
+                    <button type="button" class="ghost" id="stopBotBtn">Остановить</button>
+                </div>
+                <div class="muted" id="botSettingsStatus"></div>
+            </form>
+        </div>
+
+        <div class="tab-panel" id="tab-reports">
+            <h2>Конструктор отчётов</h2>
+            <form id="reportForm">
+                <div class="inline">
+                    <label>Название
+                        <input type="text" name="name" required>
+                    </label>
+                    <label>Интервал (мин.)
+                        <input type="number" name="intervalMinutes" min="1" value="60" required>
+                    </label>
+                </div>
+                <label>Discord сервер
+                    <select name="guildId" id="guildSelect" required></select>
+                </label>
+                <label>Канал для отчёта
+                    <select name="channelId" id="channelSelect" required></select>
+                </label>
+                <div class="inline">
+                    <label>Показывать роль
+                        <select name="showRoleName" id="showRoleName">
+                            <option value="true">Да</option>
+                            <option value="false">Нет</option>
+                        </select>
+                    </label>
+                    <label>Показывать ID
+                        <select name="showUserId" id="showUserId">
+                            <option value="true">Да</option>
+                            <option value="false">Нет</option>
+                        </select>
+                    </label>
+                    <label>Показывать упоминание
+                        <select name="showMention" id="showMention">
+                            <option value="true">Да</option>
+                            <option value="false">Нет</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="divider"></div>
+                <h3>Секции отчёта</h3>
+                <div class="section-list" id="sectionList"></div>
+                <button type="button" id="addSectionBtn" class="secondary">Добавить секцию</button>
+
+                <div class="divider"></div>
+                <label>
+                    <input type="checkbox" id="enabled" checked>
+                    Включен
+                </label>
+                <button type="submit">Сохранить отчёт</button>
+                <div class="muted" id="reportStatus"></div>
+            </form>
 
             <div class="divider"></div>
-            <h3>Секции отчёта</h3>
-            <div class="section-list" id="sectionList"></div>
-            <button type="button" id="addSectionBtn" class="secondary">Добавить секцию</button>
+            <h2>Активные отчёты</h2>
+            <div class="reports" id="reportList"></div>
+        </div>
 
-            <div class="divider"></div>
-            <label>
-                <input type="checkbox" id="enabled" checked>
-                Включен
-            </label>
-            <button type="submit">Сохранить отчёт</button>
-            <div class="muted" id="reportStatus"></div>
-        </form>
-
-        <div class="divider"></div>
-        <h2>Активные отчёты</h2>
-        <div class="reports" id="reportList"></div>
+        <div class="tab-panel" id="tab-logs">
+            <h2>Логи бота</h2>
+            <div class="log-list" id="botLogList"></div>
+        </div>
     </div>
 </div>
 
@@ -251,6 +348,8 @@
     const guildSelect = document.getElementById('guildSelect');
     const channelSelect = document.getElementById('channelSelect');
     const sectionList = document.getElementById('sectionList');
+    const botStatusDot = document.getElementById('botStatusDot');
+    const botStatusText = document.getElementById('botStatusText');
     let roleCache = {};
     let editingReportId = null;
 
@@ -357,6 +456,7 @@
             row.querySelector('[data-action="edit"]').addEventListener('click', async () => {
                 editingReportId = report.id;
                 populateReportForm(report);
+                setActiveTab('reports');
             });
             list.appendChild(row);
         });
@@ -379,6 +479,42 @@
         document.getElementById('showRoleName').value = String(format.showRoleName);
         document.getElementById('showUserId').value = String(format.showUserId);
         document.getElementById('showMention').value = String(format.showMention);
+    }
+
+    async function loadBotSettings() {
+        const response = await fetch('/api/bot/settings');
+        const data = await response.json();
+        document.getElementById('botToken').value = data.token || '';
+        document.getElementById('botAutoStart').checked = data.enabled;
+        updateBotStatus(data.running);
+    }
+
+    function updateBotStatus(isRunning) {
+        if (isRunning) {
+            botStatusDot.classList.add('online');
+            botStatusText.textContent = 'Бот работает';
+        } else {
+            botStatusDot.classList.remove('online');
+            botStatusText.textContent = 'Бот выключен';
+        }
+    }
+
+    async function loadBotLogs() {
+        const response = await fetch('/api/bot/logs');
+        const logs = await response.json();
+        const list = document.getElementById('botLogList');
+        list.innerHTML = '';
+        logs.forEach(entry => {
+            const item = document.createElement('div');
+            const level = entry.level.toLowerCase();
+            item.className = `log-item ${level}`;
+            item.innerHTML = `
+                <div class="log-level">${entry.level}</div>
+                <div>${entry.message}</div>
+                <div class="muted">${new Date(entry.createdAt).toLocaleString()}</div>
+            `;
+            list.appendChild(item);
+        });
     }
 
     document.getElementById('addSectionBtn').addEventListener('click', () => createSection());
@@ -461,18 +597,75 @@
         }
     });
 
+    document.getElementById('botSettingsForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const status = document.getElementById('botSettingsStatus');
+        status.textContent = '';
+        const payload = {
+            token: document.getElementById('botToken').value,
+            enabled: document.getElementById('botAutoStart').checked,
+            restartIfRunning: document.getElementById('botRestartIfRunning').checked
+        };
+        const response = await fetch('/api/bot/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            status.textContent = 'Настройки сохранены';
+            const data = await response.json();
+            updateBotStatus(data.running);
+        } else {
+            status.textContent = 'Ошибка сохранения';
+        }
+    });
+
+    document.getElementById('startBotBtn').addEventListener('click', async () => {
+        const response = await fetch('/api/bot/start', { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            updateBotStatus(data.running);
+        }
+    });
+
+    document.getElementById('stopBotBtn').addEventListener('click', async () => {
+        const response = await fetch('/api/bot/stop', { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            updateBotStatus(data.running);
+        }
+    });
+
     document.getElementById('logoutForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         await fetch('/api/logout', { method: 'POST' });
         window.location.href = '/login.html';
     });
 
+    function setActiveTab(tabKey) {
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabKey);
+        });
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.toggle('active', panel.id === `tab-${tabKey}`);
+        });
+        if (tabKey === 'logs') {
+            loadBotLogs();
+        }
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+    });
+
     async function init() {
         await ensureAuth();
         await loadAdmins();
+        await loadBotSettings();
         await loadGuilds();
         createSection();
         await loadReports();
+        await loadBotLogs();
     }
 
     init();

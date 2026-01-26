@@ -5,23 +5,24 @@
     <title>Discord Report Bot</title>
     <style>
         :root {
-            --bg: #0f1117;
-            --panel: #181c26;
-            --panel-soft: #1f2431;
-            --panel-strong: #202634;
-            --accent: #7d87ff;
-            --accent-strong: #b678ff;
-            --text: #f5f5f5;
-            --muted: #9aa3b2;
+            --bg: #0b0f17;
+            --panel: #151a24;
+            --panel-soft: #1a2030;
+            --panel-strong: #20283a;
+            --accent: #7f91ff;
+            --accent-strong: #b06bff;
+            --text: #f8fafc;
+            --muted: #96a0b2;
             --success: #2dd4bf;
-            --danger: #f97316;
+            --danger: #fb7185;
+            --warning: #fbbf24;
         }
         * {
             box-sizing: border-box;
         }
         body {
             margin: 0;
-            background: var(--bg);
+            background: radial-gradient(circle at top, #141a26, var(--bg));
             font-family: "Inter", sans-serif;
             color: var(--text);
         }
@@ -39,6 +40,14 @@
         .brand {
             font-weight: 700;
             letter-spacing: 0.3px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .brand span {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 500;
         }
         .nav {
             display: flex;
@@ -49,8 +58,8 @@
             background: #22283a;
             border: 1px solid #2f364a;
             color: var(--text);
-            padding: 8px 14px;
-            border-radius: 10px;
+            padding: 8px 16px;
+            border-radius: 999px;
             cursor: pointer;
         }
         .nav button.active {
@@ -64,13 +73,20 @@
         }
         .card {
             background: var(--panel);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 16px 32px rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.04);
         }
         .card h2 {
             margin: 0 0 16px;
             font-size: 18px;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
         }
         label {
             display: block;
@@ -82,10 +98,23 @@
             width: 100%;
             padding: 10px 12px;
             margin-top: 6px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid #2c3547;
             background: var(--panel-soft);
             color: var(--text);
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(127,145,255,0.25);
+        }
+        button {
+            padding: 10px 16px;
+            border-radius: 999px;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
         }
         button.primary {
             background: linear-gradient(90deg, var(--accent), var(--accent-strong));
@@ -102,6 +131,14 @@
             border: 1px solid #2c3547;
             color: var(--text);
         }
+        button.ghost.danger {
+            border-color: rgba(251, 113, 133, 0.6);
+            color: #fda4af;
+        }
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
         .top-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -110,42 +147,85 @@
         .toggle {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 12px;
+            margin-top: 12px;
         }
         .toggle input {
             display: none;
         }
         .toggle span {
-            width: 42px;
-            height: 22px;
+            width: 54px;
+            height: 28px;
             border-radius: 999px;
-            background: #30384c;
+            background: #2f364a;
             position: relative;
             cursor: pointer;
+            transition: background 0.2s ease;
         }
         .toggle span::after {
+            content: "OFF";
+            position: absolute;
+            left: 6px;
+            top: 5px;
+            font-size: 10px;
+            color: #fff;
+        }
+        .toggle span::before {
             content: "";
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: #fff;
             position: absolute;
-            top: 2px;
-            left: 2px;
+            top: 3px;
+            left: 3px;
             transition: transform 0.2s ease;
         }
         .toggle input:checked + span {
             background: var(--success);
         }
         .toggle input:checked + span::after {
-            transform: translateX(20px);
+            content: "ON";
+            left: 28px;
+        }
+        .toggle input:checked + span::before {
+            transform: translateX(24px);
         }
         .actions {
             display: flex;
             gap: 10px;
             margin-top: 14px;
             flex-wrap: wrap;
+        }
+        .actions.align-right {
+            justify-content: flex-end;
+        }
+        .status-card {
+            background: linear-gradient(160deg, #192030, #121722);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #222b3d;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .status-pill.online {
+            background: rgba(45, 212, 191, 0.2);
+            color: #5eead4;
+        }
+        .status-pill.offline {
+            background: rgba(251, 113, 133, 0.2);
+            color: #fda4af;
         }
         .report-list {
             display: grid;
@@ -183,12 +263,17 @@
             display: flex;
         }
         .modal-content {
-            background: #181c26;
-            border-radius: 16px;
-            width: min(1100px, 92vw);
+            background: #151b26;
+            border-radius: 18px;
+            width: min(1120px, 92vw);
             max-height: 90vh;
+            overflow: visible;
+            padding: 26px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .modal-scroll {
+            max-height: 78vh;
             overflow: auto;
-            padding: 24px;
         }
         .modal-grid {
             display: grid;
@@ -196,13 +281,43 @@
             gap: 20px;
         }
         .preview {
-            background: #151923;
+            background: #121722;
             border-radius: 14px;
             padding: 16px;
             border: 1px solid #2a3244;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
         .preview h3 {
             margin-top: 0;
+        }
+        .preview-header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .preview-section {
+            background: #1a2234;
+            border-radius: 12px;
+            padding: 12px;
+            display: grid;
+            gap: 8px;
+        }
+        .preview-member {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 10px;
+        }
+        .preview-member strong {
+            font-size: 13px;
+        }
+        .preview-member span {
+            font-size: 12px;
+            color: var(--muted);
         }
         .pill-list {
             display: flex;
@@ -240,6 +355,11 @@
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+        }
+        .select-trigger.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(127,145,255,0.2);
         }
         .select-menu {
             position: absolute;
@@ -253,6 +373,30 @@
             overflow: auto;
             display: none;
             z-index: 5;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+        }
+        .add-button {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #2b3346;
+            border: 1px solid #3a445a;
+            cursor: pointer;
+        }
+        .reports-disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .reports-message {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(251, 191, 36, 0.15);
+            color: #fcd34d;
+            font-size: 12px;
         }
         .select-menu.active {
             display: block;
@@ -269,6 +413,8 @@
             border-radius: 14px;
             padding: 14px;
             margin-top: 12px;
+            display: grid;
+            gap: 10px;
         }
         .muted {
             color: var(--muted);
@@ -278,7 +424,7 @@
 </head>
 <body>
 <header>
-    <div class="brand">Discord Report Bot</div>
+    <div class="brand">Discord Report Bot <span>Панель управления отчётами</span></div>
     <nav class="nav">
         <button class="active" data-nav="bots">Боты</button>
         <button data-nav="admins">Админы</button>
@@ -288,7 +434,10 @@
 
 <div class="layout">
     <div class="card">
-        <h2>Управление ботом</h2>
+        <div class="card-header">
+            <h2>Управление ботом</h2>
+            <div class="status-pill offline" id="botStatusPill">Оффлайн</div>
+        </div>
         <div class="top-grid">
             <div>
                 <label>Discord Token
@@ -315,17 +464,26 @@
                 </div>
                 <div class="muted" id="botSettingsStatus"></div>
             </div>
-            <div class="card" style="background:#1a1f2c;">
-                <h3>Статус</h3>
-                <div class="muted" id="botStatusText">Бот выключен</div>
+            <div class="status-card">
+                <div>
+                    <div class="muted">Текущий статус</div>
+                    <h3 id="botStatusText" style="margin:6px 0 0;">Бот выключен</h3>
+                </div>
+                <div class="muted">Запуск требуется для получения списков участников и отправки отчётов.</div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <h2>Отчёты</h2>
-        <div class="actions">
+    <div class="card" id="reportsCard">
+        <div class="card-header">
+            <h2>Отчёты</h2>
             <button class="primary" id="createReportBtn">Создать отчёт</button>
+        </div>
+        <div class="actions">
+            <button class="secondary" id="refreshReportsBtn" type="button">Обновить список</button>
+        </div>
+        <div class="reports-message" id="reportsDisabledMessage" style="display:none;">
+            Бот выключен — включите его, чтобы управлять отчётами и видеть превью.
         </div>
         <div class="report-list" id="reportList"></div>
     </div>
@@ -364,7 +522,10 @@
                 </div>
             </form>
             <div class="preview" id="reportPreview">
-                <h3>Предпросмотр</h3>
+                <div class="preview-header">
+                    <h3>Предпросмотр</h3>
+                    <div class="muted">Показывает участников по выбранным ролям.</div>
+                </div>
                 <div class="muted">Заполните форму, чтобы увидеть результат.</div>
             </div>
         </div>
@@ -377,12 +538,19 @@
     const reportForm = document.getElementById('reportForm');
     const sectionsContainer = document.getElementById('sections');
     const preview = document.getElementById('reportPreview');
+    const reportsCard = document.getElementById('reportsCard');
+    const reportsDisabledMessage = document.getElementById('reportsDisabledMessage');
+    const createReportBtn = document.getElementById('createReportBtn');
+    const refreshReportsBtn = document.getElementById('refreshReportsBtn');
+    const botStatusPill = document.getElementById('botStatusPill');
     let editingId = null;
     let guildsCache = [];
     let channelsCache = [];
     let rolesCache = [];
     let selectedGuildId = null;
     let selectedChannelId = null;
+    let previewTimeout = null;
+    let previewRequestId = 0;
 
     async function ensureAuth() {
         const response = await fetch('/api/session');
@@ -411,6 +579,10 @@
         document.getElementById('botToken').value = data.token || '';
         document.getElementById('botAutoStart').checked = data.enabled;
         document.getElementById('botStatusText').textContent = data.running ? 'Бот работает' : 'Бот выключен';
+        botStatusPill.textContent = data.running ? 'Онлайн' : 'Оффлайн';
+        botStatusPill.classList.toggle('online', data.running);
+        botStatusPill.classList.toggle('offline', !data.running);
+        updateReportsAvailability(data.running);
     }
 
     document.getElementById('saveBotSettings').addEventListener('click', async () => {
@@ -436,6 +608,13 @@
         await fetch('/api/bot/stop', { method: 'POST' });
         await loadBotSettings();
     });
+
+    function updateReportsAvailability(isRunning) {
+        reportsCard.classList.toggle('reports-disabled', !isRunning);
+        reportsDisabledMessage.style.display = isRunning ? 'none' : 'block';
+        createReportBtn.disabled = !isRunning;
+        refreshReportsBtn.disabled = !isRunning;
+    }
 
     async function loadReports() {
         const response = await fetch('/api/reports');
@@ -503,12 +682,17 @@
             option.addEventListener('click', () => {
                 trigger.textContent = item.name;
                 menu.classList.remove('active');
+                trigger.classList.remove('active');
                 onSelect(item);
                 updatePreview();
             });
             menu.appendChild(option);
         });
-        trigger.onclick = () => menu.classList.toggle('active');
+        trigger.onclick = (event) => {
+            event.stopPropagation();
+            const isActive = menu.classList.toggle('active');
+            trigger.classList.toggle('active', isActive);
+        };
     }
 
     function addSection(section = { title: '', roleIds: [] }) {
@@ -523,15 +707,21 @@
                 <div class="select-trigger">+ Добавить роль в секцию</div>
                 <div class="select-menu"></div>
             </div>
-            <button class="ghost" type="button">Удалить секцию</button>
+            <button class="ghost danger" type="button">Удалить секцию</button>
         `;
         const pillList = card.querySelector('.pill-list');
         const selectBox = card.querySelector('.select-box');
         buildSelect(selectBox, rolesCache, item => {
+            if (section.roleIds.includes(item.id)) {
+                return;
+            }
             section.roleIds.push(item.id);
             renderPills(pillList, section.roleIds);
         });
-        card.querySelector('button').addEventListener('click', () => card.remove());
+        card.querySelector('button').addEventListener('click', () => {
+            card.remove();
+            updatePreview();
+        });
         sectionsContainer.appendChild(card);
         renderPills(pillList, section.roleIds);
         card.querySelector('.section-title').addEventListener('input', updatePreview);
@@ -544,6 +734,7 @@
             if (!role) return;
             const pill = document.createElement('div');
             pill.className = 'pill';
+            pill.dataset.roleId = id;
             pill.innerHTML = `${role.name} <button type="button">×</button>`;
             pill.querySelector('button').addEventListener('click', () => {
                 const index = ids.indexOf(id);
@@ -556,15 +747,104 @@
         updatePreview();
     }
 
-    function updatePreview() {
-        const name = reportForm.elements.name.value || 'Название отчёта';
-        preview.innerHTML = `<h3>${name}</h3>`;
-        sectionsContainer.querySelectorAll('.section-card').forEach(section => {
-            const title = section.querySelector('.section-title').value || 'Секция';
-            const block = document.createElement('div');
-            block.innerHTML = `<strong>${title}</strong><div class="muted">${section.querySelectorAll('.pill').length} ролей</div>`;
-            preview.appendChild(block);
+    function collectSectionsPayload() {
+        return Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => ({
+            title: section.querySelector('.section-title').value,
+            roleIds: Array.from(section.querySelectorAll('.pill')).map(pill => pill.dataset.roleId).filter(Boolean)
+        }));
+    }
+
+    function renderPreviewHeader(name) {
+        const guildName = guildsCache.find(guild => guild.id === selectedGuildId)?.name || 'Не выбран сервер';
+        const channelName = channelsCache.find(channel => channel.id === selectedChannelId)?.name || 'Не выбран канал';
+        preview.innerHTML = `
+            <div class="preview-header">
+                <h3>${name}</h3>
+                <div class="muted">${guildName} • ${channelName}</div>
+            </div>
+        `;
+    }
+
+    function renderPreviewMessage(message) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = message;
+        preview.appendChild(empty);
+    }
+
+    function renderPreviewSections(sections) {
+        sections.forEach(section => {
+            const sectionCard = document.createElement('div');
+            sectionCard.className = 'preview-section';
+            const heading = document.createElement('strong');
+            heading.textContent = section.title || 'Секция';
+            sectionCard.appendChild(heading);
+            if (!section.members.length) {
+                const empty = document.createElement('div');
+                empty.className = 'muted';
+                empty.textContent = 'Нет участников с указанными ролями.';
+                sectionCard.appendChild(empty);
+            } else {
+                section.members.forEach(member => {
+                    const row = document.createElement('div');
+                    row.className = 'preview-member';
+                    row.innerHTML = `
+                        <strong>${member.displayName}</strong>
+                        <span>${member.mention} • ${member.roles.join(', ') || 'Роли не определены'} • ${member.id}</span>
+                    `;
+                    sectionCard.appendChild(row);
+                });
+            }
+            preview.appendChild(sectionCard);
         });
+    }
+
+    async function loadPreview() {
+        const name = reportForm.elements.name.value || 'Название отчёта';
+        renderPreviewHeader(name);
+        const sections = collectSectionsPayload();
+        if (!selectedGuildId) {
+            renderPreviewMessage('Выберите сервер, чтобы увидеть участников.');
+            return;
+        }
+        if (!sections.length) {
+            renderPreviewMessage('Добавьте секции и роли.');
+            return;
+        }
+        if (sections.every(section => section.roleIds.length === 0)) {
+            renderPreviewMessage('Добавьте роли в секции для предпросмотра.');
+            return;
+        }
+        renderPreviewMessage('Загрузка участников...');
+        const requestId = ++previewRequestId;
+        try {
+            const response = await fetch('/api/reports/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guildId: selectedGuildId, sections })
+            });
+            if (!response.ok) {
+                throw new Error('Preview request failed');
+            }
+            const data = await response.json();
+            if (requestId !== previewRequestId) {
+                return;
+            }
+            renderPreviewHeader(name);
+            if (!data.online) {
+                renderPreviewMessage(data.message || 'Бот выключен.');
+                return;
+            }
+            renderPreviewSections(data.sections || []);
+        } catch (error) {
+            renderPreviewHeader(name);
+            renderPreviewMessage('Не удалось загрузить участников.');
+        }
+    }
+
+    function updatePreview() {
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(loadPreview, 300);
     }
 
     async function openModal(report) {
@@ -594,6 +874,8 @@
             buildSelect(document.getElementById('channelSelect'), channelsCache, channel => {
                 selectedChannelId = channel.id;
             });
+            refreshRoleSelects();
+            updatePreview();
         });
         buildSelect(document.getElementById('channelSelect'), channelsCache, channel => {
             selectedChannelId = channel.id;
@@ -604,19 +886,14 @@
         } else {
             addSection();
         }
+        setSelectValue(document.getElementById('guildSelect'), guildsCache, selectedGuildId);
+        setSelectValue(document.getElementById('channelSelect'), channelsCache, selectedChannelId);
         updatePreview();
     }
 
     reportForm.addEventListener('submit', async event => {
         event.preventDefault();
-        const sections = Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => ({
-            title: section.querySelector('.section-title').value,
-            roleIds: Array.from(section.querySelectorAll('.pill')).map(pill => {
-                const name = pill.textContent.replace('×','').trim();
-                const role = rolesCache.find(r => r.name === name);
-                return role ? role.id : null;
-            }).filter(Boolean)
-        }));
+        const sections = collectSectionsPayload();
         const payload = {
             name: reportForm.elements.name.value,
             guildId: selectedGuildId || '',
@@ -639,9 +916,42 @@
         }
     });
 
-    document.getElementById('createReportBtn').addEventListener('click', () => openModal());
+    createReportBtn.addEventListener('click', () => openModal());
     document.getElementById('closeModal').addEventListener('click', () => reportModal.classList.remove('active'));
     document.getElementById('addSectionBtn').addEventListener('click', () => addSection());
+    refreshReportsBtn.addEventListener('click', () => loadReports());
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.select-menu').forEach(menu => menu.classList.remove('active'));
+        document.querySelectorAll('.select-trigger').forEach(trigger => trigger.classList.remove('active'));
+    });
+
+    reportForm.elements.name.addEventListener('input', updatePreview);
+    reportForm.elements.intervalMinutes.addEventListener('input', updatePreview);
+
+    function setSelectValue(selectBox, items, id) {
+        const trigger = selectBox.querySelector('.select-trigger');
+        const item = items.find(entry => entry.id === id);
+        if (item) {
+            trigger.textContent = item.name;
+        }
+    }
+
+    function refreshRoleSelects() {
+        sectionsContainer.querySelectorAll('.section-card').forEach(card => {
+            const selectBox = card.querySelector('.select-box');
+            if (selectBox) {
+                buildSelect(selectBox, rolesCache, item => {
+                    const pillList = card.querySelector('.pill-list');
+                    const existing = Array.from(pillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
+                    if (existing.includes(item.id)) {
+                        return;
+                    }
+                    const sectionIds = existing.concat(item.id);
+                    renderPills(pillList, sectionIds);
+                });
+            }
+        });
+    }
 
     async function init() {
         await ensureAuth();

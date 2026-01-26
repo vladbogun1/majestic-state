@@ -19,12 +19,18 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -244,6 +250,33 @@ public class ApiController {
         return ResponseEntity.ok(Map.of("status", "queued"));
     }
 
+    @PostMapping("/reports/preview")
+    public PreviewResponse previewReport(@Valid @RequestBody PreviewRequest request) {
+        if (botManager.getJda().isEmpty()) {
+            return new PreviewResponse(false, "Бот выключен.", List.of());
+        }
+        Guild guild = botManager.getJda().get().getGuildById(request.guildId());
+        if (guild == null) {
+            return new PreviewResponse(true, "Сервер не найден.", List.of());
+        }
+        List<PreviewSectionResponse> sections = request.sections().stream()
+                .map(section -> {
+                    List<Role> roles = resolveRoles(guild, section.roleIds());
+                    Map<Member, List<String>> members = collectMembersWithRoles(guild, roles);
+                    List<MemberPreview> memberPreviews = members.entrySet().stream()
+                            .map(entry -> new MemberPreview(
+                                    entry.getKey().getEffectiveName(),
+                                    entry.getKey().getAsMention(),
+                                    entry.getKey().getId(),
+                                    entry.getValue()
+                            ))
+                            .collect(Collectors.toList());
+                    return new PreviewSectionResponse(section.title(), memberPreviews);
+                })
+                .collect(Collectors.toList());
+        return new PreviewResponse(true, null, sections);
+    }
+
     private void applyReportRequest(ReportConfig config, ReportRequest request) throws Exception {
         config.setName(request.name());
         config.setGuildId(request.guildId());
@@ -269,6 +302,35 @@ public class ApiController {
                 config.getLastMessageId(),
                 config.getLastRunAt()
         );
+    }
+
+    private List<Role> resolveRoles(Guild guild, List<String> roleIds) {
+        List<Role> roles = new ArrayList<>();
+        for (String roleId : roleIds) {
+            Role role = guild.getRoleById(roleId);
+            if (role != null) {
+                roles.add(role);
+            }
+        }
+        return roles;
+    }
+
+    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles) {
+        Map<Member, List<String>> members = new LinkedHashMap<>();
+        Set<Member> orderedMembers = new LinkedHashSet<>();
+        for (Role role : roles) {
+            orderedMembers.addAll(guild.getMembersWithRoles(role));
+        }
+        for (Member member : orderedMembers) {
+            List<String> matched = new ArrayList<>();
+            for (Role role : roles) {
+                if (member.getRoles().contains(role)) {
+                    matched.add(role.getName());
+                }
+            }
+            members.put(member, matched);
+        }
+        return members;
     }
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
@@ -315,6 +377,21 @@ public class ApiController {
             String lastMessageId,
             Instant lastRunAt
     ) {
+    }
+
+    public record PreviewRequest(@NotBlank String guildId, @NotNull List<PreviewSectionRequest> sections) {
+    }
+
+    public record PreviewSectionRequest(@NotNull String title, @NotNull List<String> roleIds) {
+    }
+
+    public record PreviewResponse(boolean online, String message, List<PreviewSectionResponse> sections) {
+    }
+
+    public record PreviewSectionResponse(String title, List<MemberPreview> members) {
+    }
+
+    public record MemberPreview(String displayName, String mention, String id, List<String> roles) {
     }
 
     public record BotSettingsRequest(@NotNull String token, boolean enabled, boolean restartIfRunning) {

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админы - Discord Report Bot</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --panel: #181c26;
+            --panel-soft: #1f2431;
+            --accent: #7d87ff;
+            --accent-strong: #b678ff;
+            --text: #f5f5f5;
+            --muted: #9aa3b2;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            font-family: "Inter", sans-serif;
+            color: var(--text);
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 32px;
+            background: linear-gradient(135deg, #1a1f2c, #161a24);
+            border-bottom: 1px solid #242b3a;
+        }
+        .nav { display: flex; gap: 12px; }
+        .nav button {
+            background: #22283a;
+            border: 1px solid #2f364a;
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .nav button.active {
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border: none;
+        }
+        .layout {
+            padding: 28px 32px 40px;
+        }
+        .card {
+            background: var(--panel);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+            max-width: 720px;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            margin-top: 6px;
+            border-radius: 10px;
+            border: 1px solid #2c3547;
+            background: var(--panel-soft);
+            color: var(--text);
+        }
+        button.primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border: none;
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        .pill {
+            display: inline-block;
+            background: #222a3c;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div>Discord Report Bot</div>
+    <nav class="nav">
+        <button data-nav="bots">Боты</button>
+        <button class="active" data-nav="admins">Админы</button>
+        <button id="logoutBtn">Выход</button>
+    </nav>
+</header>
+
+<div class="layout">
+    <div class="card">
+        <h2>Администраторы</h2>
+        <div id="adminList"></div>
+        <form id="createAdminForm">
+            <label>Новый логин
+                <input type="text" name="username" required>
+            </label>
+            <label>Пароль
+                <input type="password" name="password" required>
+            </label>
+            <button class="primary" type="submit">Добавить администратора</button>
+        </form>
+        <form id="changePasswordForm">
+            <label>Текущий пароль
+                <input type="password" name="currentPassword" required>
+            </label>
+            <label>Новый пароль
+                <input type="password" name="newPassword" required>
+            </label>
+            <button class="primary" type="submit">Сменить пароль</button>
+        </form>
+        <div id="status" class="muted"></div>
+    </div>
+</div>
+
+<script>
+    async function ensureAuth() {
+        const response = await fetch('/api/session');
+        const data = await response.json();
+        if (!data.authenticated) {
+            window.location.href = '/login.html';
+        }
+    }
+
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.nav === 'bots') {
+                window.location.href = '/app/index.html';
+            }
+        });
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+    });
+
+    async function loadAdmins() {
+        const response = await fetch('/api/admins');
+        const admins = await response.json();
+        const list = admins.map(admin => `<span class="pill">${admin.username}</span>`).join('');
+        document.getElementById('adminList').innerHTML = list || '<span class="muted">Нет администраторов</span>';
+    }
+
+    document.getElementById('createAdminForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target));
+        const response = await fetch('/api/admins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        document.getElementById('status').textContent = response.ok ? 'Администратор создан' : 'Ошибка создания';
+        if (response.ok) {
+            event.target.reset();
+            await loadAdmins();
+        }
+    });
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target));
+        const response = await fetch('/api/admins/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        document.getElementById('status').textContent = response.ok ? 'Пароль обновлён' : 'Ошибка смены пароля';
+        if (response.ok) {
+            event.target.reset();
+        }
+    });
+
+    async function init() {
+        await ensureAuth();
+        await loadAdmins();
+    }
+
+    init();
+</script>
+</body>
+</html>

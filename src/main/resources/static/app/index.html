@@ -2,19 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Report Bot - Панель</title>
+    <title>Discord Report Bot</title>
     <style>
         :root {
             --bg: #0f1117;
             --panel: #181c26;
             --panel-soft: #1f2431;
+            --panel-strong: #202634;
             --accent: #7d87ff;
             --accent-strong: #b678ff;
             --text: #f5f5f5;
             --muted: #9aa3b2;
             --success: #2dd4bf;
             --danger: #f97316;
-            --info: #60a5fa;
         }
         * {
             box-sizing: border-box;
@@ -29,334 +29,360 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 24px 40px;
-            background: var(--panel);
+            padding: 18px 32px;
+            background: linear-gradient(135deg, #1a1f2c, #161a24);
             border-bottom: 1px solid #242b3a;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        header h1 {
-            margin: 0;
-            font-size: 20px;
+        .brand {
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .nav {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .nav button {
+            background: #22283a;
+            border: 1px solid #2f364a;
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .nav button.active {
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border: none;
         }
         .layout {
+            padding: 28px 32px 40px;
             display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 24px;
-            padding: 24px 40px 40px;
+            gap: 20px;
         }
         .card {
             background: var(--panel);
             border-radius: 16px;
             padding: 20px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
         }
         .card h2 {
-            margin: 0 0 12px;
-            font-size: 16px;
+            margin: 0 0 16px;
+            font-size: 18px;
         }
         label {
             display: block;
-            margin-top: 10px;
+            margin-top: 12px;
             font-size: 12px;
             color: var(--muted);
         }
-        input, select, textarea {
+        input, textarea {
             width: 100%;
             padding: 10px 12px;
             margin-top: 6px;
-            border-radius: 8px;
+            border-radius: 10px;
             border: 1px solid #2c3547;
             background: var(--panel-soft);
             color: var(--text);
         }
-        textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-        button {
-            margin-top: 12px;
-            padding: 10px 14px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
+        button.primary {
             background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border: none;
             color: #fff;
         }
         button.secondary {
             background: #2a3244;
+            border: none;
+            color: #fff;
         }
         button.ghost {
             background: transparent;
             border: 1px solid #2c3547;
+            color: var(--text);
         }
-        .section-list {
-            margin-top: 12px;
+        .top-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+        .toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .toggle input {
+            display: none;
+        }
+        .toggle span {
+            width: 42px;
+            height: 22px;
+            border-radius: 999px;
+            background: #30384c;
+            position: relative;
+            cursor: pointer;
+        }
+        .toggle span::after {
+            content: "";
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s ease;
+        }
+        .toggle input:checked + span {
+            background: var(--success);
+        }
+        .toggle input:checked + span::after {
+            transform: translateX(20px);
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .report-list {
             display: grid;
             gap: 12px;
         }
-        .section-item {
-            background: #1c2130;
-            border-radius: 12px;
-            padding: 12px;
+        .report-item {
+            background: var(--panel-strong);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
         }
-        .reports {
+        .report-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(10,12,18,0.72);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #181c26;
+            border-radius: 16px;
+            width: min(1100px, 92vw);
+            max-height: 90vh;
+            overflow: auto;
+            padding: 24px;
+        }
+        .modal-grid {
             display: grid;
-            gap: 12px;
-            margin-top: 12px;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
         }
-        .report-row {
-            background: #1c2130;
-            border-radius: 12px;
-            padding: 12px;
+        .preview {
+            background: #151923;
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid #2a3244;
+        }
+        .preview h3 {
+            margin-top: 0;
+        }
+        .pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .pill {
+            background: #2b3346;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pill button {
+            background: transparent;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .select-box {
+            position: relative;
+        }
+        .select-trigger {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--panel-soft);
+            border-radius: 10px;
+            border: 1px solid #2c3547;
+            color: var(--text);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            cursor: pointer;
         }
-        .report-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        .select-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #1f2533;
+            border-radius: 12px;
+            border: 1px solid #2a3244;
+            max-height: 220px;
+            overflow: auto;
+            display: none;
+            z-index: 5;
+        }
+        .select-menu.active {
+            display: block;
+        }
+        .select-item {
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+        .select-item:hover {
+            background: #2b3346;
+        }
+        .section-card {
+            background: #1f2533;
+            border-radius: 14px;
+            padding: 14px;
+            margin-top: 12px;
         }
         .muted {
             color: var(--muted);
             font-size: 12px;
         }
-        .actions {
-            display: flex;
-            gap: 8px;
-        }
-        .inline {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .inline > * {
-            flex: 1;
-            min-width: 220px;
-        }
-        .divider {
-            height: 1px;
-            background: #252c3b;
-            margin: 16px 0;
-        }
-        .pill {
-            display: inline-block;
-            background: #222a3c;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-        }
-        .tabs {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .tab {
-            background: #1c2130;
-            padding: 8px 14px;
-            border-radius: 999px;
-            cursor: pointer;
-            font-size: 13px;
-            color: var(--muted);
-        }
-        .tab.active {
-            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
-            color: #fff;
-        }
-        .tab-panel {
-            display: none;
-        }
-        .tab-panel.active {
-            display: block;
-        }
-        .status-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            background: #1c2130;
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--danger);
-        }
-        .status-dot.online {
-            background: var(--success);
-        }
-        .log-list {
-            display: grid;
-            gap: 10px;
-        }
-        .log-item {
-            background: #1c2130;
-            border-radius: 12px;
-            padding: 12px;
-            border-left: 4px solid var(--info);
-        }
-        .log-item.warn {
-            border-left-color: var(--danger);
-        }
-        .log-item.error {
-            border-left-color: #ef4444;
-        }
-        .log-item.info {
-            border-left-color: var(--info);
-        }
-        .log-level {
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            color: var(--muted);
-        }
     </style>
 </head>
 <body>
 <header>
-    <h1>Discord Report Bot</h1>
-    <form id="logoutForm">
-        <button class="ghost" type="submit">Выйти</button>
-    </form>
+    <div class="brand">Discord Report Bot</div>
+    <nav class="nav">
+        <button class="active" data-nav="bots">Боты</button>
+        <button data-nav="admins">Админы</button>
+        <button id="logoutBtn">Выход</button>
+    </nav>
 </header>
 
 <div class="layout">
     <div class="card">
-        <h2>Администраторы</h2>
-        <div id="adminList" class="muted">Загрузка...</div>
-        <div class="divider"></div>
-        <form id="createAdminForm">
-            <label>Новый логин
-                <input type="text" name="username" required>
-            </label>
-            <label>Пароль
-                <input type="password" name="password" required>
-            </label>
-            <button type="submit">Добавить администратора</button>
-            <div class="muted" id="adminCreateStatus"></div>
-        </form>
-        <div class="divider"></div>
-        <form id="changePasswordForm">
-            <label>Текущий пароль
-                <input type="password" name="currentPassword" required>
-            </label>
-            <label>Новый пароль
-                <input type="password" name="newPassword" required>
-            </label>
-            <button type="submit" class="secondary">Сменить пароль</button>
-            <div class="muted" id="passwordStatus"></div>
-        </form>
+        <h2>Управление ботом</h2>
+        <div class="top-grid">
+            <div>
+                <label>Discord Token
+                    <input type="password" id="botToken" placeholder="Введите токен">
+                </label>
+                <div class="toggle">
+                    <label>
+                        <input type="checkbox" id="botAutoStart">
+                        <span></span>
+                    </label>
+                    <div>Автозапускать после перезапуска</div>
+                </div>
+                <div class="toggle">
+                    <label>
+                        <input type="checkbox" id="botRestartIfRunning" checked>
+                        <span></span>
+                    </label>
+                    <div>Перезапустить бота при сохранении</div>
+                </div>
+                <div class="actions">
+                    <button class="primary" id="saveBotSettings">Сохранить настройки</button>
+                    <button class="secondary" id="startBotBtn">Запустить</button>
+                    <button class="ghost" id="stopBotBtn">Остановить</button>
+                </div>
+                <div class="muted" id="botSettingsStatus"></div>
+            </div>
+            <div class="card" style="background:#1a1f2c;">
+                <h3>Статус</h3>
+                <div class="muted" id="botStatusText">Бот выключен</div>
+            </div>
+        </div>
     </div>
 
     <div class="card">
-        <div class="tabs">
-            <div class="tab active" data-tab="bot">Бот</div>
-            <div class="tab" data-tab="reports">Отчёты</div>
-            <div class="tab" data-tab="logs">Логи</div>
+        <h2>Отчёты</h2>
+        <div class="actions">
+            <button class="primary" id="createReportBtn">Создать отчёт</button>
         </div>
+        <div class="report-list" id="reportList"></div>
+    </div>
+</div>
 
-        <div class="tab-panel active" id="tab-bot">
-            <h2>Управление ботом</h2>
-            <div class="status-chip">
-                <span class="status-dot" id="botStatusDot"></span>
-                <span id="botStatusText">Бот выключен</span>
-            </div>
-            <form id="botSettingsForm">
-                <label>Discord Token
-                    <input type="password" name="token" id="botToken" required>
-                </label>
-                <label>
-                    <input type="checkbox" id="botAutoStart">
-                    Автозапускать после перезапуска
-                </label>
-                <label>
-                    <input type="checkbox" id="botRestartIfRunning" checked>
-                    Перезапустить бот при сохранении
-                </label>
-                <div class="inline">
-                    <button type="submit">Сохранить настройки</button>
-                    <button type="button" class="secondary" id="startBotBtn">Запустить</button>
-                    <button type="button" class="ghost" id="stopBotBtn">Остановить</button>
-                </div>
-                <div class="muted" id="botSettingsStatus"></div>
-            </form>
+<div class="modal" id="reportModal">
+    <div class="modal-content">
+        <div class="actions" style="justify-content: space-between;">
+            <h2 id="modalTitle">Настройка отчёта</h2>
+            <button class="ghost" id="closeModal">Закрыть</button>
         </div>
-
-        <div class="tab-panel" id="tab-reports">
-            <h2>Конструктор отчётов</h2>
+        <div class="modal-grid">
             <form id="reportForm">
-                <div class="inline">
-                    <label>Название
-                        <input type="text" name="name" required>
-                    </label>
-                    <label>Интервал (мин.)
-                        <input type="number" name="intervalMinutes" min="1" value="60" required>
-                    </label>
+                <label>Название
+                    <input type="text" name="name" required>
+                </label>
+                <label>Интервал (мин.)
+                    <input type="number" name="intervalMinutes" min="1" value="60" required>
+                </label>
+                <label>Сервер
+                    <div class="select-box" id="guildSelect">
+                        <div class="select-trigger">Выберите сервер</div>
+                        <div class="select-menu"></div>
+                    </div>
+                </label>
+                <label>Канал
+                    <div class="select-box" id="channelSelect">
+                        <div class="select-trigger">Выберите канал</div>
+                        <div class="select-menu"></div>
+                    </div>
+                </label>
+                <div id="sections"></div>
+                <div class="actions">
+                    <button class="secondary" id="addSectionBtn" type="button">Добавить секцию</button>
+                    <button class="primary" type="submit">Сохранить</button>
                 </div>
-                <label>Discord сервер
-                    <select name="guildId" id="guildSelect" required></select>
-                </label>
-                <label>Канал для отчёта
-                    <select name="channelId" id="channelSelect" required></select>
-                </label>
-                <div class="inline">
-                    <label>Показывать роль
-                        <select name="showRoleName" id="showRoleName">
-                            <option value="true">Да</option>
-                            <option value="false">Нет</option>
-                        </select>
-                    </label>
-                    <label>Показывать ID
-                        <select name="showUserId" id="showUserId">
-                            <option value="true">Да</option>
-                            <option value="false">Нет</option>
-                        </select>
-                    </label>
-                    <label>Показывать упоминание
-                        <select name="showMention" id="showMention">
-                            <option value="true">Да</option>
-                            <option value="false">Нет</option>
-                        </select>
-                    </label>
-                </div>
-
-                <div class="divider"></div>
-                <h3>Секции отчёта</h3>
-                <div class="section-list" id="sectionList"></div>
-                <button type="button" id="addSectionBtn" class="secondary">Добавить секцию</button>
-
-                <div class="divider"></div>
-                <label>
-                    <input type="checkbox" id="enabled" checked>
-                    Включен
-                </label>
-                <button type="submit">Сохранить отчёт</button>
-                <div class="muted" id="reportStatus"></div>
             </form>
-
-            <div class="divider"></div>
-            <h2>Активные отчёты</h2>
-            <div class="reports" id="reportList"></div>
-        </div>
-
-        <div class="tab-panel" id="tab-logs">
-            <h2>Логи бота</h2>
-            <div class="log-list" id="botLogList"></div>
+            <div class="preview" id="reportPreview">
+                <h3>Предпросмотр</h3>
+                <div class="muted">Заполните форму, чтобы увидеть результат.</div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    const guildSelect = document.getElementById('guildSelect');
-    const channelSelect = document.getElementById('channelSelect');
-    const sectionList = document.getElementById('sectionList');
-    const botStatusDot = document.getElementById('botStatusDot');
-    const botStatusText = document.getElementById('botStatusText');
-    let roleCache = {};
-    let editingReportId = null;
+    const reportList = document.getElementById('reportList');
+    const reportModal = document.getElementById('reportModal');
+    const reportForm = document.getElementById('reportForm');
+    const sectionsContainer = document.getElementById('sections');
+    const preview = document.getElementById('reportPreview');
+    let editingId = null;
+    let guildsCache = [];
+    let channelsCache = [];
+    let rolesCache = [];
+    let selectedGuildId = null;
+    let selectedChannelId = null;
 
     async function ensureAuth() {
         const response = await fetch('/api/session');
@@ -366,246 +392,28 @@
         }
     }
 
-    async function loadAdmins() {
-        const response = await fetch('/api/admins');
-        const admins = await response.json();
-        const list = admins.map(admin => `<div class="pill">${admin.username}</div>`).join(' ');
-        document.getElementById('adminList').innerHTML = list || '<span class="muted">Нет администраторов</span>';
-    }
-
-    async function loadGuilds() {
-        const response = await fetch('/api/discord/guilds');
-        const guilds = await response.json();
-        guildSelect.innerHTML = guilds.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-        if (guilds.length) {
-            await loadChannels(guilds[0].id);
-            await loadRoles(guilds[0].id);
-        }
-    }
-
-    async function loadChannels(guildId) {
-        const response = await fetch(`/api/discord/guilds/${guildId}/channels`);
-        const channels = await response.json();
-        channelSelect.innerHTML = channels.map(c => `<option value="${c.id}">#${c.name}</option>`).join('');
-    }
-
-    async function loadRoles(guildId) {
-        const response = await fetch(`/api/discord/guilds/${guildId}/roles`);
-        const roles = await response.json();
-        roleCache[guildId] = roles;
-        updateRoleSelectors();
-    }
-
-    function updateRoleSelectors() {
-        const guildId = guildSelect.value;
-        const roles = roleCache[guildId] || [];
-        document.querySelectorAll('.roleSelect').forEach(select => {
-            const selected = new Set(Array.from(select.selectedOptions).map(opt => opt.value));
-            select.innerHTML = roles.map(role => {
-                const isSelected = selected.has(role.id) ? 'selected' : '';
-                return `<option value="${role.id}" ${isSelected}>${role.name}</option>`;
-            }).join('');
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.nav === 'admins') {
+                window.location.href = '/app/admins.html';
+            }
         });
-    }
+    });
 
-    function createSection(data = {}) {
-        const section = document.createElement('div');
-        section.className = 'section-item';
-        section.innerHTML = `
-            <label>Название секции
-                <input type="text" class="sectionTitle" value="${data.title || ''}" required>
-            </label>
-            <label>Роли для секции
-                <select class="roleSelect" multiple size="6"></select>
-            </label>
-            <button type="button" class="ghost removeSection">Удалить секцию</button>
-        `;
-        section.querySelector('.removeSection').addEventListener('click', () => section.remove());
-        sectionList.appendChild(section);
-        updateRoleSelectors();
-        if (data.roleIds) {
-            const select = section.querySelector('.roleSelect');
-            Array.from(select.options).forEach(option => {
-                option.selected = data.roleIds.includes(option.value);
-            });
-        }
-    }
-
-    async function loadReports() {
-        const response = await fetch('/api/reports');
-        const reports = await response.json();
-        const list = document.getElementById('reportList');
-        list.innerHTML = '';
-        reports.forEach(report => {
-            const row = document.createElement('div');
-            row.className = 'report-row';
-            row.innerHTML = `
-                <div class="report-meta">
-                    <strong>${report.name}</strong>
-                    <span class="muted">${report.guildId} → ${report.channelId}</span>
-                    <span class="muted">Интервал: ${report.intervalMinutes} мин • ${report.enabled ? 'Вкл' : 'Выкл'}</span>
-                </div>
-                <div class="actions">
-                    <button class="secondary" data-action="edit">Редактировать</button>
-                    <button class="ghost" data-action="run">Запуск</button>
-                    <button class="ghost" data-action="delete">Удалить</button>
-                </div>
-            `;
-            row.querySelector('[data-action="run"]').addEventListener('click', async () => {
-                await fetch(`/api/reports/${report.id}/run`, { method: 'POST' });
-            });
-            row.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-                await fetch(`/api/reports/${report.id}`, { method: 'DELETE' });
-                await loadReports();
-            });
-            row.querySelector('[data-action="edit"]').addEventListener('click', async () => {
-                editingReportId = report.id;
-                populateReportForm(report);
-                setActiveTab('reports');
-            });
-            list.appendChild(row);
-        });
-    }
-
-    function populateReportForm(report) {
-        document.querySelector('[name="name"]').value = report.name;
-        document.querySelector('[name="intervalMinutes"]').value = report.intervalMinutes;
-        guildSelect.value = report.guildId;
-        document.getElementById('enabled').checked = report.enabled;
-        loadChannels(report.guildId).then(() => {
-            channelSelect.value = report.channelId;
-        });
-        loadRoles(report.guildId).then(() => {
-            sectionList.innerHTML = '';
-            const sections = JSON.parse(report.rulesJson);
-            sections.forEach(section => createSection(section));
-        });
-        const format = JSON.parse(report.formatJson);
-        document.getElementById('showRoleName').value = String(format.showRoleName);
-        document.getElementById('showUserId').value = String(format.showUserId);
-        document.getElementById('showMention').value = String(format.showMention);
-    }
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+    });
 
     async function loadBotSettings() {
         const response = await fetch('/api/bot/settings');
         const data = await response.json();
         document.getElementById('botToken').value = data.token || '';
         document.getElementById('botAutoStart').checked = data.enabled;
-        updateBotStatus(data.running);
+        document.getElementById('botStatusText').textContent = data.running ? 'Бот работает' : 'Бот выключен';
     }
 
-    function updateBotStatus(isRunning) {
-        if (isRunning) {
-            botStatusDot.classList.add('online');
-            botStatusText.textContent = 'Бот работает';
-        } else {
-            botStatusDot.classList.remove('online');
-            botStatusText.textContent = 'Бот выключен';
-        }
-    }
-
-    async function loadBotLogs() {
-        const response = await fetch('/api/bot/logs');
-        const logs = await response.json();
-        const list = document.getElementById('botLogList');
-        list.innerHTML = '';
-        logs.forEach(entry => {
-            const item = document.createElement('div');
-            const level = entry.level.toLowerCase();
-            item.className = `log-item ${level}`;
-            item.innerHTML = `
-                <div class="log-level">${entry.level}</div>
-                <div>${entry.message}</div>
-                <div class="muted">${new Date(entry.createdAt).toLocaleString()}</div>
-            `;
-            list.appendChild(item);
-        });
-    }
-
-    document.getElementById('addSectionBtn').addEventListener('click', () => createSection());
-
-    guildSelect.addEventListener('change', async () => {
-        await loadChannels(guildSelect.value);
-        await loadRoles(guildSelect.value);
-    });
-
-    document.getElementById('reportForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const status = document.getElementById('reportStatus');
-        status.textContent = '';
-        const sections = Array.from(document.querySelectorAll('.section-item')).map(section => ({
-            title: section.querySelector('.sectionTitle').value,
-            roleIds: Array.from(section.querySelector('.roleSelect').selectedOptions).map(opt => opt.value)
-        }));
-        const payload = {
-            name: document.querySelector('[name="name"]').value,
-            guildId: guildSelect.value,
-            channelId: channelSelect.value,
-            intervalMinutes: Number(document.querySelector('[name="intervalMinutes"]').value),
-            enabled: document.getElementById('enabled').checked,
-            sections,
-            format: {
-                showRoleName: document.getElementById('showRoleName').value === 'true',
-                showUserId: document.getElementById('showUserId').value === 'true',
-                showMention: document.getElementById('showMention').value === 'true'
-            }
-        };
-        const method = editingReportId ? 'PUT' : 'POST';
-        const url = editingReportId ? `/api/reports/${editingReportId}` : '/api/reports';
-        const response = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (response.ok) {
-            status.textContent = 'Сохранено!';
-            editingReportId = null;
-            event.target.reset();
-            sectionList.innerHTML = '';
-            createSection();
-            await loadReports();
-        } else {
-            status.textContent = 'Ошибка сохранения';
-        }
-    });
-
-    document.getElementById('createAdminForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const status = document.getElementById('adminCreateStatus');
-        status.textContent = '';
-        const payload = Object.fromEntries(new FormData(event.target));
-        const response = await fetch('/api/admins', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        status.textContent = response.ok ? 'Администратор создан' : 'Ошибка создания';
-        if (response.ok) {
-            event.target.reset();
-            await loadAdmins();
-        }
-    });
-
-    document.getElementById('changePasswordForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const status = document.getElementById('passwordStatus');
-        status.textContent = '';
-        const payload = Object.fromEntries(new FormData(event.target));
-        const response = await fetch('/api/admins/change-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        status.textContent = response.ok ? 'Пароль обновлён' : 'Ошибка смены пароля';
-        if (response.ok) {
-            event.target.reset();
-        }
-    });
-
-    document.getElementById('botSettingsForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const status = document.getElementById('botSettingsStatus');
-        status.textContent = '';
+    document.getElementById('saveBotSettings').addEventListener('click', async () => {
         const payload = {
             token: document.getElementById('botToken').value,
             enabled: document.getElementById('botAutoStart').checked,
@@ -616,61 +424,229 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        if (response.ok) {
-            status.textContent = 'Настройки сохранены';
-            const data = await response.json();
-            updateBotStatus(data.running);
-        } else {
-            status.textContent = 'Ошибка сохранения';
-        }
+        document.getElementById('botSettingsStatus').textContent = response.ok ? 'Сохранено' : 'Ошибка сохранения';
     });
 
     document.getElementById('startBotBtn').addEventListener('click', async () => {
-        const response = await fetch('/api/bot/start', { method: 'POST' });
-        if (response.ok) {
-            const data = await response.json();
-            updateBotStatus(data.running);
-        }
+        await fetch('/api/bot/start', { method: 'POST' });
+        await loadBotSettings();
     });
 
     document.getElementById('stopBotBtn').addEventListener('click', async () => {
-        const response = await fetch('/api/bot/stop', { method: 'POST' });
+        await fetch('/api/bot/stop', { method: 'POST' });
+        await loadBotSettings();
+    });
+
+    async function loadReports() {
+        const response = await fetch('/api/reports');
+        const reports = await response.json();
+        reportList.innerHTML = '';
+        reports.forEach(report => {
+            const item = document.createElement('div');
+            item.className = 'report-item';
+            item.innerHTML = `
+                <div class="report-info">
+                    <strong>${report.name}</strong>
+                    <span class="muted">Интервал: ${report.intervalMinutes} мин • ${report.enabled ? 'Активен' : 'Пауза'}</span>
+                </div>
+                <div class="report-actions">
+                    <button class="secondary" data-action="toggle">${report.enabled ? 'Пауза' : 'Возобновить'}</button>
+                    <button class="primary" data-action="edit">Изменить</button>
+                    <button class="ghost" data-action="delete">Удалить</button>
+                </div>
+            `;
+            item.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
+                report.enabled = !report.enabled;
+                await saveReport(report);
+            });
+            item.querySelector('[data-action="edit"]').addEventListener('click', async () => {
+                openModal(report);
+            });
+            item.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+                await fetch(`/api/reports/${report.id}`, { method: 'DELETE' });
+                await loadReports();
+            });
+            reportList.appendChild(item);
+        });
+    }
+
+    async function saveReport(report) {
+        const response = await fetch(`/api/reports/${report.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(report)
+        });
         if (response.ok) {
-            const data = await response.json();
-            updateBotStatus(data.running);
-        }
-    });
-
-    document.getElementById('logoutForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        await fetch('/api/logout', { method: 'POST' });
-        window.location.href = '/login.html';
-    });
-
-    function setActiveTab(tabKey) {
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.tab === tabKey);
-        });
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-            panel.classList.toggle('active', panel.id === `tab-${tabKey}`);
-        });
-        if (tabKey === 'logs') {
-            loadBotLogs();
+            await loadReports();
         }
     }
 
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => setActiveTab(tab.dataset.tab));
+    async function fetchLookups(guildId) {
+        const [guildsRes, channelsRes, rolesRes] = await Promise.all([
+            fetch('/api/discord/guilds'),
+            fetch(`/api/discord/guilds/${guildId}/channels`),
+            fetch(`/api/discord/guilds/${guildId}/roles`)
+        ]);
+        guildsCache = await guildsRes.json();
+        channelsCache = await channelsRes.json();
+        rolesCache = await rolesRes.json();
+    }
+
+    function buildSelect(box, items, onSelect) {
+        const trigger = box.querySelector('.select-trigger');
+        const menu = box.querySelector('.select-menu');
+        menu.innerHTML = '';
+        items.forEach(item => {
+            const option = document.createElement('div');
+            option.className = 'select-item';
+            option.textContent = item.name;
+            option.addEventListener('click', () => {
+                trigger.textContent = item.name;
+                menu.classList.remove('active');
+                onSelect(item);
+                updatePreview();
+            });
+            menu.appendChild(option);
+        });
+        trigger.onclick = () => menu.classList.toggle('active');
+    }
+
+    function addSection(section = { title: '', roleIds: [] }) {
+        const card = document.createElement('div');
+        card.className = 'section-card';
+        card.innerHTML = `
+            <label>Название секции
+                <input type="text" class="section-title" value="${section.title}">
+            </label>
+            <div class="pill-list"></div>
+            <div class="select-box">
+                <div class="select-trigger">+ Добавить роль в секцию</div>
+                <div class="select-menu"></div>
+            </div>
+            <button class="ghost" type="button">Удалить секцию</button>
+        `;
+        const pillList = card.querySelector('.pill-list');
+        const selectBox = card.querySelector('.select-box');
+        buildSelect(selectBox, rolesCache, item => {
+            section.roleIds.push(item.id);
+            renderPills(pillList, section.roleIds);
+        });
+        card.querySelector('button').addEventListener('click', () => card.remove());
+        sectionsContainer.appendChild(card);
+        renderPills(pillList, section.roleIds);
+        card.querySelector('.section-title').addEventListener('input', updatePreview);
+    }
+
+    function renderPills(container, ids) {
+        container.innerHTML = '';
+        ids.forEach(id => {
+            const role = rolesCache.find(r => r.id === id);
+            if (!role) return;
+            const pill = document.createElement('div');
+            pill.className = 'pill';
+            pill.innerHTML = `${role.name} <button type="button">×</button>`;
+            pill.querySelector('button').addEventListener('click', () => {
+                const index = ids.indexOf(id);
+                ids.splice(index, 1);
+                renderPills(container, ids);
+                updatePreview();
+            });
+            container.appendChild(pill);
+        });
+        updatePreview();
+    }
+
+    function updatePreview() {
+        const name = reportForm.elements.name.value || 'Название отчёта';
+        preview.innerHTML = `<h3>${name}</h3>`;
+        sectionsContainer.querySelectorAll('.section-card').forEach(section => {
+            const title = section.querySelector('.section-title').value || 'Секция';
+            const block = document.createElement('div');
+            block.innerHTML = `<strong>${title}</strong><div class="muted">${section.querySelectorAll('.pill').length} ролей</div>`;
+            preview.appendChild(block);
+        });
+    }
+
+    async function openModal(report) {
+        reportModal.classList.add('active');
+        sectionsContainer.innerHTML = '';
+        editingId = report?.id || null;
+        reportForm.reset();
+        if (report) {
+            reportForm.elements.name.value = report.name;
+            reportForm.elements.intervalMinutes.value = report.intervalMinutes;
+        }
+        const guildId = report?.guildId || null;
+        if (guildId) {
+            await fetchLookups(guildId);
+            selectedGuildId = guildId;
+        } else if (guildsCache.length === 0) {
+            const guildsRes = await fetch('/api/discord/guilds');
+            guildsCache = await guildsRes.json();
+            selectedGuildId = guildsCache[0]?.id || null;
+            if (selectedGuildId) {
+                await fetchLookups(selectedGuildId);
+            }
+        }
+        buildSelect(document.getElementById('guildSelect'), guildsCache, async item => {
+            selectedGuildId = item.id;
+            await fetchLookups(item.id);
+            buildSelect(document.getElementById('channelSelect'), channelsCache, channel => {
+                selectedChannelId = channel.id;
+            });
+        });
+        buildSelect(document.getElementById('channelSelect'), channelsCache, channel => {
+            selectedChannelId = channel.id;
+        });
+        if (report) {
+            JSON.parse(report.rulesJson).forEach(section => addSection(section));
+            selectedChannelId = report.channelId;
+        } else {
+            addSection();
+        }
+        updatePreview();
+    }
+
+    reportForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const sections = Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => ({
+            title: section.querySelector('.section-title').value,
+            roleIds: Array.from(section.querySelectorAll('.pill')).map(pill => {
+                const name = pill.textContent.replace('×','').trim();
+                const role = rolesCache.find(r => r.name === name);
+                return role ? role.id : null;
+            }).filter(Boolean)
+        }));
+        const payload = {
+            name: reportForm.elements.name.value,
+            guildId: selectedGuildId || '',
+            channelId: selectedChannelId || '',
+            intervalMinutes: Number(reportForm.elements.intervalMinutes.value),
+            enabled: true,
+            sections,
+            format: { showRoleName: true, showUserId: true, showMention: true }
+        };
+        const method = editingId ? 'PUT' : 'POST';
+        const url = editingId ? `/api/reports/${editingId}` : '/api/reports';
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            reportModal.classList.remove('active');
+            await loadReports();
+        }
     });
+
+    document.getElementById('createReportBtn').addEventListener('click', () => openModal());
+    document.getElementById('closeModal').addEventListener('click', () => reportModal.classList.remove('active'));
+    document.getElementById('addSectionBtn').addEventListener('click', () => addSection());
 
     async function init() {
         await ensureAuth();
-        await loadAdmins();
         await loadBotSettings();
-        await loadGuilds();
-        createSection();
         await loadReports();
-        await loadBotLogs();
     }
 
     init();

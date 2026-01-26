@@ -877,13 +877,44 @@
     }
 
     async function saveReport(report) {
+        const payload = {
+            name: report.name,
+            guildId: report.guildId,
+            channelId: report.channelId,
+            intervalMinutes: report.intervalMinutes,
+            enabled: report.enabled,
+            sections: parseReportSections(report.rulesJson),
+            format: parseReportFormat(report.formatJson)
+        };
         const response = await fetch(`/api/reports/${report.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(report)
+            body: JSON.stringify(payload)
         });
         if (response.ok) {
             await loadReports();
+        }
+    }
+
+    function parseReportSections(rulesJson) {
+        if (!rulesJson) {
+            return [];
+        }
+        try {
+            return JSON.parse(rulesJson);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function parseReportFormat(formatJson) {
+        if (!formatJson) {
+            return { showRoleName: true, showUserId: true, showMention: true };
+        }
+        try {
+            return JSON.parse(formatJson);
+        } catch (error) {
+            return { showRoleName: true, showUserId: true, showMention: true };
         }
     }
 

@@ -184,80 +184,88 @@
         }
         .top-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1.2fr 1fr;
             gap: 16px;
+        }
+        .bot-panel {
+            display: grid;
+            gap: 14px;
+        }
+        .bot-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .bot-actions-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
         }
         .toggle {
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
+            gap: 16px;
             margin-top: 12px;
             background: #1c2332;
-            padding: 10px 12px;
-            border-radius: 14px;
+            padding: 12px 16px;
+            border-radius: 16px;
             border: 1px solid #2b3448;
         }
-        .toggle input {
-            display: none;
-        }
-        .toggle-details {
+        .toggle-label {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
-        .toggle-details strong {
+        .toggle-label strong {
             font-size: 13px;
         }
-        .toggle-details span {
+        .toggle-label span {
             font-size: 12px;
             color: var(--muted);
         }
-        .toggle-state {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: var(--muted);
+        .switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
         }
-        .toggle.enabled .toggle-state {
-            color: #4ade80;
+        .switch input[type=checkbox] {
+            height: 0;
+            width: 0;
+            visibility: hidden;
         }
-        .toggle span {
+        .switch label {
+            cursor: pointer;
+            text-indent: -9999px;
             width: 54px;
             height: 28px;
-            border-radius: 999px;
             background: #2f364a;
+            display: block;
+            border-radius: 999px;
             position: relative;
-            cursor: pointer;
-            transition: background 0.2s ease;
         }
-        .toggle span::after {
-            content: "OFF";
-            position: absolute;
-            left: 6px;
-            top: 5px;
-            font-size: 10px;
-            color: #fff;
-        }
-        .toggle span::before {
+        .switch label:after {
             content: "";
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #fff;
             position: absolute;
-            top: 3px;
-            left: 3px;
-            transition: transform 0.2s ease;
+            top: 4px;
+            left: 4px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 20px;
+            transition: 0.3s;
         }
-        .toggle input:checked + span {
-            background: var(--success);
+        .switch input:checked + label {
+            background: #22c55e;
         }
-        .toggle input:checked + span::after {
-            content: "ON";
-            left: 28px;
+        .switch input:checked + label:after {
+            left: calc(100% - 4px);
+            transform: translateX(-100%);
         }
-        .toggle input:checked + span::before {
-            transform: translateX(24px);
+        .switch label:active:after {
+            width: 26px;
         }
         .actions {
             display: flex;
@@ -324,6 +332,11 @@
         .status-pill.offline {
             background: rgba(251, 113, 133, 0.2);
             color: #fda4af;
+        }
+        .status-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
         }
         .report-list {
             display: grid;
@@ -535,44 +548,46 @@
     <div class="card">
         <div class="card-header">
             <h2>Управление ботом</h2>
-            <button class="icon-button primary" id="saveBotSettings" title="Сохранить настройки">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span class="sr-only">Сохранить настройки</span>
-            </button>
         </div>
         <div class="top-grid">
-            <div>
+            <div class="bot-panel">
                 <label>Discord Token
                     <input type="password" id="botToken" placeholder="Введите токен">
                 </label>
                 <div class="toggle">
-                    <label>
-                        <input type="checkbox" id="botAutoStart">
-                        <span></span>
-                    </label>
-                    <div class="toggle-details">
+                    <div class="toggle-label">
                         <strong>Автозапуск после перезапуска</strong>
-                        <span class="toggle-state">OFF</span>
+                        <span>Запускает бота автоматически.</span>
+                    </div>
+                    <div class="switch">
+                        <input type="checkbox" id="botAutoStart">
+                        <label for="botAutoStart">Toggle</label>
                     </div>
                 </div>
                 <div class="toggle">
-                    <label>
-                        <input type="checkbox" id="botRestartIfRunning" checked>
-                        <span></span>
-                    </label>
-                    <div class="toggle-details">
+                    <div class="toggle-label">
                         <strong>Перезапуск при сохранении</strong>
-                        <span class="toggle-state">ON</span>
+                        <span>Применяет настройки сразу.</span>
+                    </div>
+                    <div class="switch">
+                        <input type="checkbox" id="botRestartIfRunning" checked>
+                        <label for="botRestartIfRunning">Toggle</label>
                     </div>
                 </div>
-                <div class="actions">
-                    <button class="icon-button success" id="startBotBtn" title="Запустить бота">
-                        <i class="fa-solid fa-play"></i>
-                        <span class="sr-only">Запустить бота</span>
-                    </button>
-                    <button class="icon-button danger" id="stopBotBtn" title="Остановить бота">
-                        <i class="fa-solid fa-pause"></i>
-                        <span class="sr-only">Остановить бота</span>
+                <div class="bot-actions">
+                    <div class="bot-actions-group">
+                        <button class="icon-button success" id="startBotBtn" title="Запустить бота">
+                            <i class="fa-solid fa-play"></i>
+                            <span class="sr-only">Запустить бота</span>
+                        </button>
+                        <button class="icon-button danger" id="stopBotBtn" title="Остановить бота">
+                            <i class="fa-solid fa-pause"></i>
+                            <span class="sr-only">Остановить бота</span>
+                        </button>
+                    </div>
+                    <button class="icon-button primary" id="saveBotSettings" title="Сохранить настройки">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span class="sr-only">Сохранить настройки</span>
                     </button>
                 </div>
                 <div class="muted" id="botSettingsStatus"></div>
@@ -589,6 +604,16 @@
                     <div class="status-pill offline" id="botStatusPill">Оффлайн</div>
                 </div>
                 <div class="muted">Запуск требуется для получения списков участников и отправки отчётов.</div>
+                <div class="status-actions">
+                    <button class="icon-button success" id="statusStartBtn" title="Запустить бота">
+                        <i class="fa-solid fa-play"></i>
+                        <span class="sr-only">Запустить бота</span>
+                    </button>
+                    <button class="icon-button danger" id="statusStopBtn" title="Остановить бота">
+                        <i class="fa-solid fa-pause"></i>
+                        <span class="sr-only">Остановить бота</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -638,6 +663,39 @@
                         <div class="select-menu"></div>
                     </div>
                 </label>
+                <div class="section-card">
+                    <strong>Формат отчёта</strong>
+                    <div class="toggle">
+                        <div class="toggle-label">
+                            <strong>Показывать роли</strong>
+                            <span>Добавляет роли в строке участника.</span>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="formatShowRoleName" checked>
+                            <label for="formatShowRoleName">Toggle</label>
+                        </div>
+                    </div>
+                    <div class="toggle">
+                        <div class="toggle-label">
+                            <strong>Показывать ID</strong>
+                            <span>Отображает идентификатор пользователя.</span>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="formatShowUserId" checked>
+                            <label for="formatShowUserId">Toggle</label>
+                        </div>
+                    </div>
+                    <div class="toggle">
+                        <div class="toggle-label">
+                            <strong>Показывать упоминание</strong>
+                            <span>Добавляет упоминание пользователя.</span>
+                        </div>
+                        <div class="switch">
+                            <input type="checkbox" id="formatShowMention" checked>
+                            <label for="formatShowMention">Toggle</label>
+                        </div>
+                    </div>
+                </div>
                 <div id="sections"></div>
                 <div class="actions">
                     <button class="icon-button" id="addSectionBtn" type="button" title="Добавить секцию">
@@ -675,6 +733,11 @@
     const botStatusIcon = document.getElementById('botStatusIcon');
     const botAutoStart = document.getElementById('botAutoStart');
     const botRestartIfRunning = document.getElementById('botRestartIfRunning');
+    const formatShowRoleName = document.getElementById('formatShowRoleName');
+    const formatShowUserId = document.getElementById('formatShowUserId');
+    const formatShowMention = document.getElementById('formatShowMention');
+    const statusStartBtn = document.getElementById('statusStartBtn');
+    const statusStopBtn = document.getElementById('statusStopBtn');
     let editingId = null;
     let guildsCache = [];
     let channelsCache = [];
@@ -745,6 +808,16 @@
     });
 
     document.getElementById('stopBotBtn').addEventListener('click', async () => {
+        await fetch('/api/bot/stop', { method: 'POST' });
+        await loadBotSettings();
+    });
+
+    statusStartBtn.addEventListener('click', async () => {
+        await fetch('/api/bot/start', { method: 'POST' });
+        await loadBotSettings();
+    });
+
+    statusStopBtn.addEventListener('click', async () => {
         await fetch('/api/bot/stop', { method: 'POST' });
         await loadBotSettings();
     });
@@ -967,9 +1040,19 @@
                 section.members.forEach(member => {
                     const row = document.createElement('div');
                     row.className = 'preview-member';
+                    const details = [];
+                    if (formatShowMention.checked) {
+                        details.push(member.mention);
+                    }
+                    if (formatShowRoleName.checked) {
+                        details.push(member.roles.join(', ') || 'Роли не определены');
+                    }
+                    if (formatShowUserId.checked) {
+                        details.push(member.id);
+                    }
                     row.innerHTML = `
                         <strong>${member.displayName}</strong>
-                        <span>${member.mention} • ${member.roles.join(', ') || 'Роли не определены'} • ${member.id}</span>
+                        <span>${details.join(' • ') || '—'}</span>
                     `;
                     sectionCard.appendChild(row);
                 });
@@ -1031,9 +1114,18 @@
         sectionsContainer.innerHTML = '';
         editingId = report?.id || null;
         reportForm.reset();
+        formatShowRoleName.checked = true;
+        formatShowUserId.checked = true;
+        formatShowMention.checked = true;
         if (report) {
             reportForm.elements.name.value = report.name;
             reportForm.elements.intervalMinutes.value = report.intervalMinutes;
+            if (report.formatJson) {
+                const format = JSON.parse(report.formatJson);
+                formatShowRoleName.checked = format.showRoleName ?? true;
+                formatShowUserId.checked = format.showUserId ?? true;
+                formatShowMention.checked = format.showMention ?? true;
+            }
         }
         const guildId = report?.guildId || null;
         if (guildId) {
@@ -1080,7 +1172,11 @@
             intervalMinutes: Number(reportForm.elements.intervalMinutes.value),
             enabled: true,
             sections,
-            format: { showRoleName: true, showUserId: true, showMention: true }
+            format: {
+                showRoleName: formatShowRoleName.checked,
+                showUserId: formatShowUserId.checked,
+                showMention: formatShowMention.checked
+            }
         };
         const method = editingId ? 'PUT' : 'POST';
         const url = editingId ? `/api/reports/${editingId}` : '/api/reports';
@@ -1107,18 +1203,16 @@
     reportForm.elements.intervalMinutes.addEventListener('input', updatePreview);
     botAutoStart.addEventListener('change', () => updateToggleState(botAutoStart));
     botRestartIfRunning.addEventListener('change', () => updateToggleState(botRestartIfRunning));
+    formatShowRoleName.addEventListener('change', updatePreview);
+    formatShowUserId.addEventListener('change', updatePreview);
+    formatShowMention.addEventListener('change', updatePreview);
 
     function updateToggleState(input) {
-        const state = input.checked ? 'ON' : 'OFF';
         const wrapper = input.closest('.toggle');
         if (!wrapper) {
             return;
         }
         wrapper.classList.toggle('enabled', input.checked);
-        const stateEl = wrapper.querySelector('.toggle-state');
-        if (stateEl) {
-            stateEl.textContent = state;
-        }
     }
 
     function setSelectValue(selectBox, items, id) {

@@ -108,18 +108,23 @@ public class ApiController {
         if (adminId == null) {
             return Map.of("authenticated", false);
         }
-        return Map.of("authenticated", true, "adminId", adminId);
+        AdminUser admin = adminService.findById(Long.valueOf(adminId.toString())).orElse(null);
+        boolean primary = admin != null && admin.isPrimaryAdmin();
+        return Map.of("authenticated", true, "adminId", adminId, "primaryAdmin", primary);
     }
 
     @GetMapping("/admins")
     public List<AdminSummary> admins() {
         return adminService.listAdmins().stream()
-                .map(admin -> new AdminSummary(admin.getId(), admin.getUsername(), admin.getCreatedAt()))
+                .map(admin -> new AdminSummary(admin.getId(), admin.getUsername(), admin.getCreatedAt(), admin.isPrimaryAdmin()))
                 .collect(Collectors.toList());
     }
 
     @PostMapping("/admins")
-    public ResponseEntity<?> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
+    public ResponseEntity<?> createAdmin(@Valid @RequestBody AdminCreateRequest request, HttpServletRequest servletRequest) {
+        if (adminService.hasAdmins() && !currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
         if (adminService.findByUsername(request.username()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Username already exists"));
         }
@@ -130,6 +135,9 @@ public class ApiController {
 
     @PostMapping("/admins/change-password")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
         Object adminId = servletRequest.getSession().getAttribute(SessionAuthInterceptor.ADMIN_SESSION_KEY);
         if (adminId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Not authenticated"));
@@ -140,6 +148,36 @@ public class ApiController {
         }
         if (!passwordService.matches(request.currentPassword(), admin.getPasswordSalt(), admin.getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Current password incorrect"));
+        }
+        adminService.changePassword(admin, request.newPassword());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PutMapping("/admins/{id}/primary")
+    public ResponseEntity<?> updateAdminPrimary(@PathVariable Long id,
+                                                @Valid @RequestBody AdminPrimaryRequest request,
+                                                HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
+        AdminUser admin = adminService.findById(id).orElse(null);
+        if (admin == null) {
+            return ResponseEntity.notFound().build();
+        }
+        adminService.setPrimary(admin, request.primary());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PutMapping("/admins/{id}/password")
+    public ResponseEntity<?> updateAdminPassword(@PathVariable Long id,
+                                                 @Valid @RequestBody AdminResetPasswordRequest request,
+                                                 HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
+        AdminUser admin = adminService.findById(id).orElse(null);
+        if (admin == null) {
+            return ResponseEntity.notFound().build();
         }
         adminService.changePassword(admin, request.newPassword());
         return ResponseEntity.ok(Map.of("status", "ok"));
@@ -304,6 +342,18 @@ public class ApiController {
         );
     }
 
+    private boolean currentAdminIsPrimary(HttpServletRequest servletRequest) {
+        return currentAdmin(servletRequest).map(AdminUser::isPrimaryAdmin).orElse(false);
+    }
+
+    private Optional<AdminUser> currentAdmin(HttpServletRequest servletRequest) {
+        Object adminId = servletRequest.getSession().getAttribute(SessionAuthInterceptor.ADMIN_SESSION_KEY);
+        if (adminId == null) {
+            return Optional.empty();
+        }
+        return adminService.findById(Long.valueOf(adminId.toString()));
+    }
+
     private List<Role> resolveRoles(Guild guild, List<String> roleIds) {
         List<Role> roles = new ArrayList<>();
         for (String roleId : roleIds) {
@@ -342,7 +392,13 @@ public class ApiController {
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
     }
 
-    public record AdminSummary(Long id, String username, Instant createdAt) {
+    public record AdminSummary(Long id, String username, Instant createdAt, boolean primaryAdmin) {
+    }
+
+    public record AdminPrimaryRequest(@NotNull Boolean primary) {
+    }
+
+    public record AdminResetPasswordRequest(@NotBlank String newPassword) {
     }
 
     public record GuildSummary(String id, String name) {

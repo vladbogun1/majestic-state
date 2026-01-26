@@ -2,21 +2,23 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store">
     <title>Админы - Discord Report Bot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
-            --bg: #0f1117;
-            --panel: #181c26;
-            --panel-soft: #1f2431;
-            --accent: #7d87ff;
-            --accent-strong: #b678ff;
-            --text: #f5f5f5;
-            --muted: #9aa3b2;
+            --bg: #0b0f17;
+            --panel: #151a24;
+            --panel-soft: #1a2030;
+            --accent: #7f91ff;
+            --accent-strong: #b06bff;
+            --text: #f8fafc;
+            --muted: #96a0b2;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background: var(--bg);
+            background: radial-gradient(circle at top, #141a26, var(--bg));
             font-family: "Inter", sans-serif;
             color: var(--text);
         }
@@ -46,10 +48,18 @@
         }
         .card {
             background: var(--panel);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-            max-width: 720px;
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 16px 32px rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .card + .card {
+            margin-top: 18px;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         label {
             display: block;
@@ -61,27 +71,88 @@
             width: 100%;
             padding: 10px 12px;
             margin-top: 6px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid #2c3547;
             background: var(--panel-soft);
             color: var(--text);
         }
-        button.primary {
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .icon-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #20283a;
+            border: 1px solid #2b3448;
+            color: var(--text);
+            cursor: pointer;
+        }
+        .icon-button.primary {
             background: linear-gradient(90deg, var(--accent), var(--accent-strong));
             border: none;
-            color: #fff;
-            padding: 10px 14px;
-            border-radius: 10px;
-            cursor: pointer;
+        }
+        .icon-button.danger {
+            background: rgba(248, 113, 113, 0.15);
+            border-color: rgba(248, 113, 113, 0.45);
+            color: #fda4af;
+        }
+        .icon-button.active {
+            background: rgba(250, 204, 21, 0.15);
+            border-color: rgba(250, 204, 21, 0.5);
+            color: #facc15;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 12px;
         }
-        .pill {
-            display: inline-block;
-            background: #222a3c;
-            padding: 6px 10px;
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 13px;
+        }
+        th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+        tbody tr {
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
             border-radius: 999px;
+            background: #222a3c;
             font-size: 12px;
-            margin-right: 6px;
+            color: var(--muted);
+        }
+        .badge.primary {
+            background: rgba(250, 204, 21, 0.15);
+            color: #facc15;
+        }
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
     </style>
 </head>
@@ -97,8 +168,15 @@
 
 <div class="layout">
     <div class="card">
-        <h2>Администраторы</h2>
-        <div id="adminList"></div>
+        <div class="card-header">
+            <h2>Администраторы</h2>
+            <span class="muted" id="adminAccessLabel">Только просмотр</span>
+        </div>
+        <div id="adminTable"></div>
+        <div id="status" class="muted"></div>
+    </div>
+    <div class="card" id="adminActionsCard" style="display:none;">
+        <h3>Управление администраторами</h3>
         <form id="createAdminForm">
             <label>Новый логин
                 <input type="text" name="username" required>
@@ -106,7 +184,12 @@
             <label>Пароль
                 <input type="password" name="password" required>
             </label>
-            <button class="primary" type="submit">Добавить администратора</button>
+            <div class="actions">
+                <button class="icon-button primary" type="submit" title="Добавить администратора">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span class="sr-only">Добавить администратора</span>
+                </button>
+            </div>
         </form>
         <form id="changePasswordForm">
             <label>Текущий пароль
@@ -115,19 +198,31 @@
             <label>Новый пароль
                 <input type="password" name="newPassword" required>
             </label>
-            <button class="primary" type="submit">Сменить пароль</button>
+            <div class="actions">
+                <button class="icon-button" type="submit" title="Сменить пароль">
+                    <i class="fa-solid fa-key"></i>
+                    <span class="sr-only">Сменить пароль</span>
+                </button>
+            </div>
         </form>
-        <div id="status" class="muted"></div>
     </div>
 </div>
 
 <script>
+    let isPrimaryAdmin = false;
+    let currentAdminId = null;
+
     async function ensureAuth() {
         const response = await fetch('/api/session');
         const data = await response.json();
         if (!data.authenticated) {
             window.location.href = '/login.html';
+            return;
         }
+        currentAdminId = data.adminId;
+        isPrimaryAdmin = Boolean(data.primaryAdmin);
+        document.getElementById('adminActionsCard').style.display = isPrimaryAdmin ? 'block' : 'none';
+        document.getElementById('adminAccessLabel').textContent = isPrimaryAdmin ? 'Главный админ' : 'Только просмотр';
     }
 
     document.querySelectorAll('[data-nav]').forEach(btn => {
@@ -146,12 +241,89 @@
     async function loadAdmins() {
         const response = await fetch('/api/admins');
         const admins = await response.json();
-        const list = admins.map(admin => `<span class="pill">${admin.username}</span>`).join('');
-        document.getElementById('adminList').innerHTML = list || '<span class="muted">Нет администраторов</span>';
+        if (!admins.length) {
+            document.getElementById('adminTable').innerHTML = '<span class="muted">Нет администраторов</span>';
+            return;
+        }
+        const rows = admins.map(admin => {
+            const isPrimary = admin.primaryAdmin;
+            const roleLabel = isPrimary
+                ? '<span class="badge primary"><i class="fa-solid fa-crown"></i> Главный</span>'
+                : '<span class="badge">Админ</span>';
+            const actions = isPrimaryAdmin
+                ? `
+                    <button class="icon-button ${isPrimary ? 'active' : ''}" data-action="toggle-primary" data-id="${admin.id}" title="${isPrimary ? 'Снять права главного' : 'Назначить главным'}">
+                        <i class="fa-solid fa-crown"></i>
+                        <span class="sr-only">${isPrimary ? 'Снять права главного' : 'Назначить главным'}</span>
+                    </button>
+                    <button class="icon-button" data-action="reset-password" data-id="${admin.id}" title="Сбросить пароль">
+                        <i class="fa-solid fa-key"></i>
+                        <span class="sr-only">Сбросить пароль</span>
+                    </button>
+                `
+                : '<span class="muted">—</span>';
+            return `
+                <tr>
+                    <td>${admin.username}</td>
+                    <td>${roleLabel}</td>
+                    <td>${formatDate(admin.createdAt)}</td>
+                    <td>${actions}</td>
+                </tr>
+            `;
+        }).join('');
+        document.getElementById('adminTable').innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Логин</th>
+                        <th>Роль</th>
+                        <th>Создан</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+        document.querySelectorAll('[data-action="toggle-primary"]').forEach(button => {
+            button.addEventListener('click', async () => {
+                if (!isPrimaryAdmin) {
+                    return;
+                }
+                const targetId = button.dataset.id;
+                const makePrimary = !button.classList.contains('active');
+                await fetch(`/api/admins/${targetId}/primary`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ primary: makePrimary })
+                });
+                await loadAdmins();
+            });
+        });
+        document.querySelectorAll('[data-action="reset-password"]').forEach(button => {
+            button.addEventListener('click', async () => {
+                if (!isPrimaryAdmin) {
+                    return;
+                }
+                const targetId = button.dataset.id;
+                const newPassword = prompt('Введите новый пароль');
+                if (!newPassword) {
+                    return;
+                }
+                const response = await fetch(`/api/admins/${targetId}/password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newPassword })
+                });
+                document.getElementById('status').textContent = response.ok ? 'Пароль обновлён' : 'Ошибка обновления пароля';
+            });
+        });
     }
 
     document.getElementById('createAdminForm').addEventListener('submit', async event => {
         event.preventDefault();
+        if (!isPrimaryAdmin) {
+            return;
+        }
         const payload = Object.fromEntries(new FormData(event.target));
         const response = await fetch('/api/admins', {
             method: 'POST',
@@ -167,6 +339,9 @@
 
     document.getElementById('changePasswordForm').addEventListener('submit', async event => {
         event.preventDefault();
+        if (!isPrimaryAdmin) {
+            return;
+        }
         const payload = Object.fromEntries(new FormData(event.target));
         const response = await fetch('/api/admins/change-password', {
             method: 'POST',
@@ -178,6 +353,14 @@
             event.target.reset();
         }
     });
+
+    function formatDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return date.toLocaleString('ru-RU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
 
     async function init() {
         await ensureAuth();

@@ -2,7 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store">
     <title>Discord Report Bot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
             --bg: #0b0f17;
@@ -65,6 +67,17 @@
         .nav button.active {
             background: linear-gradient(90deg, var(--accent), var(--accent-strong));
             border: none;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
         .layout {
             padding: 28px 32px 40px;
@@ -135,6 +148,36 @@
             border-color: rgba(251, 113, 133, 0.6);
             color: #fda4af;
         }
+        .icon-button {
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: #20283a;
+            border: 1px solid #2b3448;
+            color: var(--text);
+            transition: transform 0.15s ease, border 0.2s ease, background 0.2s ease;
+        }
+        .icon-button:hover {
+            transform: translateY(-1px);
+            border-color: #3a4460;
+        }
+        .icon-button.primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            border: none;
+        }
+        .icon-button.success {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #4ade80;
+        }
+        .icon-button.danger {
+            background: rgba(248, 113, 113, 0.15);
+            border-color: rgba(248, 113, 113, 0.45);
+            color: #fda4af;
+        }
         button:disabled {
             opacity: 0.55;
             cursor: not-allowed;
@@ -145,13 +188,38 @@
             gap: 16px;
         }
         .toggle {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 12px;
             margin-top: 12px;
+            background: #1c2332;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid #2b3448;
         }
         .toggle input {
             display: none;
+        }
+        .toggle-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .toggle-details strong {
+            font-size: 13px;
+        }
+        .toggle-details span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .toggle-state {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: var(--muted);
+        }
+        .toggle.enabled .toggle-state {
+            color: #4ade80;
         }
         .toggle span {
             width: 54px;
@@ -208,6 +276,36 @@
             display: flex;
             flex-direction: column;
             gap: 14px;
+        }
+        .status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .status-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148, 163, 184, 0.2);
+            color: #cbd5f5;
+            font-size: 13px;
+        }
+        .status-icon.online {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+        .status-icon.offline {
+            background: rgba(248, 113, 113, 0.15);
+            color: #fda4af;
         }
         .status-pill {
             display: inline-flex;
@@ -267,13 +365,14 @@
             border-radius: 18px;
             width: min(1120px, 92vw);
             max-height: 90vh;
-            overflow: visible;
-            padding: 26px;
+            overflow: hidden;
+            padding: 24px;
             border: 1px solid rgba(255,255,255,0.06);
         }
         .modal-scroll {
-            max-height: 78vh;
+            max-height: 75vh;
             overflow: auto;
+            padding: 8px 4px 4px;
         }
         .modal-grid {
             display: grid;
@@ -436,7 +535,10 @@
     <div class="card">
         <div class="card-header">
             <h2>Управление ботом</h2>
-            <div class="status-pill offline" id="botStatusPill">Оффлайн</div>
+            <button class="icon-button primary" id="saveBotSettings" title="Сохранить настройки">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span class="sr-only">Сохранить настройки</span>
+            </button>
         </div>
         <div class="top-grid">
             <div>
@@ -448,26 +550,43 @@
                         <input type="checkbox" id="botAutoStart">
                         <span></span>
                     </label>
-                    <div>Автозапускать после перезапуска</div>
+                    <div class="toggle-details">
+                        <strong>Автозапуск после перезапуска</strong>
+                        <span class="toggle-state">OFF</span>
+                    </div>
                 </div>
                 <div class="toggle">
                     <label>
                         <input type="checkbox" id="botRestartIfRunning" checked>
                         <span></span>
                     </label>
-                    <div>Перезапустить бота при сохранении</div>
+                    <div class="toggle-details">
+                        <strong>Перезапуск при сохранении</strong>
+                        <span class="toggle-state">ON</span>
+                    </div>
                 </div>
                 <div class="actions">
-                    <button class="primary" id="saveBotSettings">Сохранить настройки</button>
-                    <button class="secondary" id="startBotBtn">Запустить</button>
-                    <button class="ghost" id="stopBotBtn">Остановить</button>
+                    <button class="icon-button success" id="startBotBtn" title="Запустить бота">
+                        <i class="fa-solid fa-play"></i>
+                        <span class="sr-only">Запустить бота</span>
+                    </button>
+                    <button class="icon-button danger" id="stopBotBtn" title="Остановить бота">
+                        <i class="fa-solid fa-pause"></i>
+                        <span class="sr-only">Остановить бота</span>
+                    </button>
                 </div>
                 <div class="muted" id="botSettingsStatus"></div>
             </div>
             <div class="status-card">
-                <div>
-                    <div class="muted">Текущий статус</div>
-                    <h3 id="botStatusText" style="margin:6px 0 0;">Бот выключен</h3>
+                <div class="status-header">
+                    <div>
+                        <div class="muted">Текущий статус</div>
+                        <div class="status-title" style="margin:6px 0 0;">
+                            <span class="status-icon offline" id="botStatusIcon"><i class="fa-solid fa-pause"></i></span>
+                            <h3 id="botStatusText" style="margin:0;">Бот выключен</h3>
+                        </div>
+                    </div>
+                    <div class="status-pill offline" id="botStatusPill">Оффлайн</div>
                 </div>
                 <div class="muted">Запуск требуется для получения списков участников и отправки отчётов.</div>
             </div>
@@ -477,10 +596,10 @@
     <div class="card" id="reportsCard">
         <div class="card-header">
             <h2>Отчёты</h2>
-            <button class="primary" id="createReportBtn">Создать отчёт</button>
-        </div>
-        <div class="actions">
-            <button class="secondary" id="refreshReportsBtn" type="button">Обновить список</button>
+            <button class="icon-button primary" id="createReportBtn" title="Создать отчёт">
+                <i class="fa-solid fa-plus"></i>
+                <span class="sr-only">Создать отчёт</span>
+            </button>
         </div>
         <div class="reports-message" id="reportsDisabledMessage" style="display:none;">
             Бот выключен — включите его, чтобы управлять отчётами и видеть превью.
@@ -493,9 +612,13 @@
     <div class="modal-content">
         <div class="actions" style="justify-content: space-between;">
             <h2 id="modalTitle">Настройка отчёта</h2>
-            <button class="ghost" id="closeModal">Закрыть</button>
+            <button class="icon-button" id="closeModal" title="Закрыть">
+                <i class="fa-solid fa-xmark"></i>
+                <span class="sr-only">Закрыть</span>
+            </button>
         </div>
-        <div class="modal-grid">
+        <div class="modal-scroll">
+            <div class="modal-grid">
             <form id="reportForm">
                 <label>Название
                     <input type="text" name="name" required>
@@ -517,8 +640,14 @@
                 </label>
                 <div id="sections"></div>
                 <div class="actions">
-                    <button class="secondary" id="addSectionBtn" type="button">Добавить секцию</button>
-                    <button class="primary" type="submit">Сохранить</button>
+                    <button class="icon-button" id="addSectionBtn" type="button" title="Добавить секцию">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span class="sr-only">Добавить секцию</span>
+                    </button>
+                    <button class="icon-button primary" type="submit" title="Сохранить отчёт">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span class="sr-only">Сохранить отчёт</span>
+                    </button>
                 </div>
             </form>
             <div class="preview" id="reportPreview">
@@ -527,6 +656,7 @@
                     <div class="muted">Показывает участников по выбранным ролям.</div>
                 </div>
                 <div class="muted">Заполните форму, чтобы увидеть результат.</div>
+            </div>
             </div>
         </div>
     </div>
@@ -541,8 +671,10 @@
     const reportsCard = document.getElementById('reportsCard');
     const reportsDisabledMessage = document.getElementById('reportsDisabledMessage');
     const createReportBtn = document.getElementById('createReportBtn');
-    const refreshReportsBtn = document.getElementById('refreshReportsBtn');
     const botStatusPill = document.getElementById('botStatusPill');
+    const botStatusIcon = document.getElementById('botStatusIcon');
+    const botAutoStart = document.getElementById('botAutoStart');
+    const botRestartIfRunning = document.getElementById('botRestartIfRunning');
     let editingId = null;
     let guildsCache = [];
     let channelsCache = [];
@@ -551,6 +683,9 @@
     let selectedChannelId = null;
     let previewTimeout = null;
     let previewRequestId = 0;
+    let reportRefreshTimer = null;
+    const guildNameMap = new Map();
+    const channelNameMap = new Map();
 
     async function ensureAuth() {
         const response = await fetch('/api/session');
@@ -577,12 +712,17 @@
         const response = await fetch('/api/bot/settings');
         const data = await response.json();
         document.getElementById('botToken').value = data.token || '';
-        document.getElementById('botAutoStart').checked = data.enabled;
+        botAutoStart.checked = data.enabled;
         document.getElementById('botStatusText').textContent = data.running ? 'Бот работает' : 'Бот выключен';
         botStatusPill.textContent = data.running ? 'Онлайн' : 'Оффлайн';
         botStatusPill.classList.toggle('online', data.running);
         botStatusPill.classList.toggle('offline', !data.running);
+        botStatusIcon.classList.toggle('online', data.running);
+        botStatusIcon.classList.toggle('offline', !data.running);
+        botStatusIcon.innerHTML = data.running ? '<i class="fa-solid fa-play"></i>' : '<i class="fa-solid fa-pause"></i>';
         updateReportsAvailability(data.running);
+        updateToggleState(botAutoStart);
+        updateToggleState(botRestartIfRunning);
     }
 
     document.getElementById('saveBotSettings').addEventListener('click', async () => {
@@ -613,25 +753,39 @@
         reportsCard.classList.toggle('reports-disabled', !isRunning);
         reportsDisabledMessage.style.display = isRunning ? 'none' : 'block';
         createReportBtn.disabled = !isRunning;
-        refreshReportsBtn.disabled = !isRunning;
     }
 
     async function loadReports() {
         const response = await fetch('/api/reports');
         const reports = await response.json();
+        await hydrateReportLookups(reports);
         reportList.innerHTML = '';
         reports.forEach(report => {
             const item = document.createElement('div');
             item.className = 'report-item';
+            const guildName = guildNameMap.get(report.guildId) || report.guildId || '—';
+            const channelName = channelNameMap.get(report.channelId) || report.channelId || '—';
+            const lastRun = report.lastRunAt ? formatDate(report.lastRunAt) : 'ещё не запускался';
             item.innerHTML = `
                 <div class="report-info">
                     <strong>${report.name}</strong>
                     <span class="muted">Интервал: ${report.intervalMinutes} мин • ${report.enabled ? 'Активен' : 'Пауза'}</span>
+                    <span class="muted">Сервер: ${guildName} • Канал: ${channelName}</span>
+                    <span class="muted">Последний запуск: ${lastRun}</span>
                 </div>
                 <div class="report-actions">
-                    <button class="secondary" data-action="toggle">${report.enabled ? 'Пауза' : 'Возобновить'}</button>
-                    <button class="primary" data-action="edit">Изменить</button>
-                    <button class="ghost" data-action="delete">Удалить</button>
+                    <button class="icon-button" data-action="toggle" title="${report.enabled ? 'Пауза' : 'Возобновить'}">
+                        <i class="fa-solid ${report.enabled ? 'fa-pause' : 'fa-play'}"></i>
+                        <span class="sr-only">${report.enabled ? 'Пауза' : 'Возобновить'}</span>
+                    </button>
+                    <button class="icon-button" data-action="edit" title="Изменить">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span class="sr-only">Изменить</span>
+                    </button>
+                    <button class="icon-button danger" data-action="delete" title="Удалить">
+                        <i class="fa-solid fa-trash"></i>
+                        <span class="sr-only">Удалить</span>
+                    </button>
                 </div>
             `;
             item.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
@@ -647,6 +801,28 @@
             });
             reportList.appendChild(item);
         });
+    }
+
+    function formatDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return date.toLocaleString('ru-RU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function hydrateReportLookups(reports) {
+        guildNameMap.clear();
+        channelNameMap.clear();
+        const guildsResponse = await fetch('/api/discord/guilds');
+        const guilds = await guildsResponse.json();
+        guilds.forEach(guild => guildNameMap.set(guild.id, guild.name));
+        const uniqueGuildIds = Array.from(new Set(reports.map(report => report.guildId))).filter(Boolean);
+        await Promise.all(uniqueGuildIds.map(async guildId => {
+            const channelsResponse = await fetch(`/api/discord/guilds/${guildId}/channels`);
+            const channels = await channelsResponse.json();
+            channels.forEach(channel => channelNameMap.set(channel.id, channel.name));
+        }));
     }
 
     async function saveReport(report) {
@@ -707,7 +883,10 @@
                 <div class="select-trigger">+ Добавить роль в секцию</div>
                 <div class="select-menu"></div>
             </div>
-            <button class="ghost danger" type="button">Удалить секцию</button>
+            <button class="icon-button danger" type="button" title="Удалить секцию">
+                <i class="fa-solid fa-trash"></i>
+                <span class="sr-only">Удалить секцию</span>
+            </button>
         `;
         const pillList = card.querySelector('.pill-list');
         const selectBox = card.querySelector('.select-box');
@@ -919,7 +1098,6 @@
     createReportBtn.addEventListener('click', () => openModal());
     document.getElementById('closeModal').addEventListener('click', () => reportModal.classList.remove('active'));
     document.getElementById('addSectionBtn').addEventListener('click', () => addSection());
-    refreshReportsBtn.addEventListener('click', () => loadReports());
     document.addEventListener('click', () => {
         document.querySelectorAll('.select-menu').forEach(menu => menu.classList.remove('active'));
         document.querySelectorAll('.select-trigger').forEach(trigger => trigger.classList.remove('active'));
@@ -927,6 +1105,21 @@
 
     reportForm.elements.name.addEventListener('input', updatePreview);
     reportForm.elements.intervalMinutes.addEventListener('input', updatePreview);
+    botAutoStart.addEventListener('change', () => updateToggleState(botAutoStart));
+    botRestartIfRunning.addEventListener('change', () => updateToggleState(botRestartIfRunning));
+
+    function updateToggleState(input) {
+        const state = input.checked ? 'ON' : 'OFF';
+        const wrapper = input.closest('.toggle');
+        if (!wrapper) {
+            return;
+        }
+        wrapper.classList.toggle('enabled', input.checked);
+        const stateEl = wrapper.querySelector('.toggle-state');
+        if (stateEl) {
+            stateEl.textContent = state;
+        }
+    }
 
     function setSelectValue(selectBox, items, id) {
         const trigger = selectBox.querySelector('.select-trigger');
@@ -957,6 +1150,7 @@
         await ensureAuth();
         await loadBotSettings();
         await loadReports();
+        reportRefreshTimer = setInterval(loadReports, 30000);
     }
 
     init();

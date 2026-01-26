@@ -27,6 +27,9 @@ public class AdminUser {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "is_primary", nullable = false)
+    private boolean primaryAdmin = false;
+
     public Long getId() {
         return id;
     }
@@ -61,5 +64,13 @@ public class AdminUser {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isPrimaryAdmin() {
+        return primaryAdmin;
+    }
+
+    public void setPrimaryAdmin(boolean primaryAdmin) {
+        this.primaryAdmin = primaryAdmin;
     }
 }

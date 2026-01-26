@@ -54,10 +54,13 @@ public class ReportService {
             return;
         }
 
+        String headerText = buildHeaderText(config);
+        List<List<MessageEmbed>> batches = batchEmbeds(embeds, 10);
+        int expectedMessages = 1 + batches.size();
         List<String> previousMessageIds = parseMessageIds(config.getLastMessageIds(), config.getLastMessageId());
-        if (canEditMessages(previousMessageIds, embeds)) {
+        if (canEditMessages(previousMessageIds, expectedMessages)) {
             try {
-                editExistingMessages(channel, config, previousMessageIds, embeds, 0);
+                editExistingMessages(channel, config, previousMessageIds, headerText, batches, 0);
                 return;
             } catch (Exception ex) {
                 log.warn("Error editing messages, sending new ones", ex);
@@ -67,30 +70,43 @@ public class ReportService {
         if (!previousMessageIds.isEmpty()) {
             deleteOldMessages(channel, previousMessageIds);
         }
-        sendNewMessages(channel, config, embeds);
+        sendNewMessages(channel, config, headerText, batches);
     }
 
-    private boolean canEditMessages(List<String> messageIds, List<MessageEmbed> embeds) {
-        return !messageIds.isEmpty() && messageIds.size() == embeds.size();
+    private boolean canEditMessages(List<String> messageIds, int expectedMessages) {
+        return !messageIds.isEmpty() && messageIds.size() == expectedMessages;
     }
 
     private void editExistingMessages(TextChannel channel,
                                       ReportConfig config,
                                       List<String> messageIds,
-                                      List<MessageEmbed> embeds,
+                                      String headerText,
+                                      List<List<MessageEmbed>> batches,
                                       int index) {
         String messageId = messageIds.get(index);
-        channel.editMessageEmbedsById(messageId, List.of(embeds.get(index))).queue(
+        if (index == 0) {
+            channel.editMessageById(messageId, headerText).queue(
+                    success -> editExistingMessages(channel, config, messageIds, headerText, batches, index + 1),
+                    error -> {
+                        log.warn("Failed to edit header message {}, sending new ones", messageId, error);
+                        sendNewMessages(channel, config, headerText, batches);
+                    }
+            );
+            return;
+        }
+        int batchIndex = index - 1;
+        List<MessageEmbed> batch = batches.get(batchIndex);
+        channel.editMessageEmbedsById(messageId, batch).queue(
                 success -> {
                     if (index == messageIds.size() - 1) {
                         updateRunTimestamps(config, messageIds);
                     } else {
-                        editExistingMessages(channel, config, messageIds, embeds, index + 1);
+                        editExistingMessages(channel, config, messageIds, headerText, batches, index + 1);
                     }
                 },
                 error -> {
                     log.warn("Failed to edit message {}, sending new ones", messageId, error);
-                    sendNewMessages(channel, config, embeds);
+                    sendNewMessages(channel, config, headerText, batches);
                 }
         );
     }
@@ -101,13 +117,19 @@ public class ReportService {
         }
     }
 
-    private void sendNewMessages(TextChannel channel, ReportConfig config, List<MessageEmbed> embeds) {
-        if (embeds.isEmpty()) {
+    private void sendNewMessages(TextChannel channel,
+                                 ReportConfig config,
+                                 String headerText,
+                                 List<List<MessageEmbed>> batches) {
+        if (batches.isEmpty()) {
             updateRunTimestamps(config, (String) null);
             return;
         }
-        List<List<MessageEmbed>> batches = batchEmbeds(embeds, 10);
-        sendEmbedBatch(channel, config, batches, 0, new ArrayList<>());
+        List<String> messageIds = new ArrayList<>();
+        channel.sendMessage(headerText).queue(message -> {
+            messageIds.add(message.getId());
+            sendEmbedBatch(channel, config, batches, 0, messageIds);
+        });
     }
 
     private void sendEmbedBatch(TextChannel channel,
@@ -253,7 +275,6 @@ public class ReportService {
             for (int i = 0; i < descriptionChunks.size(); i++) {
                 String title = i == 0 ? section.getTitle() : section.getTitle() + " (продолжение)";
                 EmbedBuilder builder = new EmbedBuilder()
-                        .setAuthor(config.getName())
                         .setTitle(title)
                         .setDescription(descriptionChunks.get(i))
                         .setFooter(footer);
@@ -326,5 +347,9 @@ public class ReportService {
         String updated = formatter.format(lastRun);
         String next = formatter.format(nextRun);
         return "Обновлено: " + updated + " | Следующее: [" + next + "]";
+    }
+
+    private String buildHeaderText(ReportConfig config) {
+        return "**" + config.getName() + "**";
     }
 }

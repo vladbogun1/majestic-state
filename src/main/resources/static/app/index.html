@@ -575,16 +575,6 @@
                     </div>
                 </div>
                 <div class="bot-actions">
-                    <div class="bot-actions-group">
-                        <button class="icon-button success" id="startBotBtn" title="Запустить бота">
-                            <i class="fa-solid fa-play"></i>
-                            <span class="sr-only">Запустить бота</span>
-                        </button>
-                        <button class="icon-button danger" id="stopBotBtn" title="Остановить бота">
-                            <i class="fa-solid fa-pause"></i>
-                            <span class="sr-only">Остановить бота</span>
-                        </button>
-                    </div>
                     <button class="icon-button primary" id="saveBotSettings" title="Сохранить настройки">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span class="sr-only">Сохранить настройки</span>
@@ -605,13 +595,9 @@
                 </div>
                 <div class="muted">Запуск требуется для получения списков участников и отправки отчётов.</div>
                 <div class="status-actions">
-                    <button class="icon-button success" id="statusStartBtn" title="Запустить бота">
+                    <button class="icon-button success" id="statusToggleBtn" title="Запустить бота">
                         <i class="fa-solid fa-play"></i>
                         <span class="sr-only">Запустить бота</span>
-                    </button>
-                    <button class="icon-button danger" id="statusStopBtn" title="Остановить бота">
-                        <i class="fa-solid fa-pause"></i>
-                        <span class="sr-only">Остановить бота</span>
                     </button>
                 </div>
             </div>
@@ -736,8 +722,7 @@
     const formatShowRoleName = document.getElementById('formatShowRoleName');
     const formatShowUserId = document.getElementById('formatShowUserId');
     const formatShowMention = document.getElementById('formatShowMention');
-    const statusStartBtn = document.getElementById('statusStartBtn');
-    const statusStopBtn = document.getElementById('statusStopBtn');
+    const statusToggleBtn = document.getElementById('statusToggleBtn');
     let editingId = null;
     let guildsCache = [];
     let channelsCache = [];
@@ -783,6 +768,13 @@
         botStatusIcon.classList.toggle('online', data.running);
         botStatusIcon.classList.toggle('offline', !data.running);
         botStatusIcon.innerHTML = data.running ? '<i class="fa-solid fa-play"></i>' : '<i class="fa-solid fa-pause"></i>';
+        statusToggleBtn.classList.toggle('success', !data.running);
+        statusToggleBtn.classList.toggle('danger', data.running);
+        statusToggleBtn.innerHTML = data.running
+            ? '<i class="fa-solid fa-pause"></i><span class="sr-only">Остановить бота</span>'
+            : '<i class="fa-solid fa-play"></i><span class="sr-only">Запустить бота</span>';
+        statusToggleBtn.title = data.running ? 'Остановить бота' : 'Запустить бота';
+        statusToggleBtn.dataset.running = data.running ? 'true' : 'false';
         updateReportsAvailability(data.running);
         updateToggleState(botAutoStart);
         updateToggleState(botRestartIfRunning);
@@ -802,23 +794,9 @@
         document.getElementById('botSettingsStatus').textContent = response.ok ? 'Сохранено' : 'Ошибка сохранения';
     });
 
-    document.getElementById('startBotBtn').addEventListener('click', async () => {
-        await fetch('/api/bot/start', { method: 'POST' });
-        await loadBotSettings();
-    });
-
-    document.getElementById('stopBotBtn').addEventListener('click', async () => {
-        await fetch('/api/bot/stop', { method: 'POST' });
-        await loadBotSettings();
-    });
-
-    statusStartBtn.addEventListener('click', async () => {
-        await fetch('/api/bot/start', { method: 'POST' });
-        await loadBotSettings();
-    });
-
-    statusStopBtn.addEventListener('click', async () => {
-        await fetch('/api/bot/stop', { method: 'POST' });
+    statusToggleBtn.addEventListener('click', async () => {
+        const running = statusToggleBtn.dataset.running === 'true';
+        await fetch(running ? '/api/bot/stop' : '/api/bot/start', { method: 'POST' });
         await loadBotSettings();
     });
 
@@ -847,7 +825,7 @@
                     <span class="muted">Последний запуск: ${lastRun}</span>
                 </div>
                 <div class="report-actions">
-                    <button class="icon-button" data-action="toggle" title="${report.enabled ? 'Пауза' : 'Возобновить'}">
+                    <button class="icon-button ${report.enabled ? 'danger' : 'success'}" data-action="toggle" title="${report.enabled ? 'Пауза' : 'Возобновить'}">
                         <i class="fa-solid ${report.enabled ? 'fa-pause' : 'fa-play'}"></i>
                         <span class="sr-only">${report.enabled ? 'Пауза' : 'Возобновить'}</span>
                     </button>

@@ -50,7 +50,7 @@ public class ReportService {
         if (channel == null) {
             log.warn("Channel not found for report config {}", config.getId());
             botLogService.log("WARN", "Channel not found for report config " + config.getName());
-            updateRunTimestamps(config, null);
+            updateRunTimestamps(config, (String) null);
             return;
         }
 
@@ -103,7 +103,7 @@ public class ReportService {
 
     private void sendNewMessages(TextChannel channel, ReportConfig config, List<MessageEmbed> embeds) {
         if (embeds.isEmpty()) {
-            updateRunTimestamps(config, null);
+            updateRunTimestamps(config, (String) null);
             return;
         }
         List<List<MessageEmbed>> batches = batchEmbeds(embeds, 10);

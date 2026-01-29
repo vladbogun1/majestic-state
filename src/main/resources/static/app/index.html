@@ -524,6 +524,73 @@
         .select-item:hover {
             background: #2b3346;
         }
+        .multi-select-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .multi-select {
+            position: relative;
+        }
+        .multi-select__toggle {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--panel-soft);
+            border-radius: 10px;
+            border: 1px solid #2c3547;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .multi-select__toggle span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .multi-select__list {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: #1f2533;
+            border-radius: 12px;
+            border: 1px solid #2a3244;
+            max-height: 220px;
+            overflow: auto;
+            display: none;
+            z-index: 5;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+        }
+        .multi-select.open .multi-select__list {
+            display: block;
+        }
+        .multi-select__item {
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .multi-select__item:hover {
+            background: #2b3346;
+        }
+        .multi-select__tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .multi-select__tag {
+            background: #2b3346;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+        }
+        .multi-select__tag.exclude {
+            background: rgba(248, 113, 113, 0.2);
+            color: #fda4af;
+        }
         .section-card {
             background: #1f2533;
             border-radius: 14px;
@@ -974,79 +1041,52 @@
             <label>Название секции
                 <input type="text" class="section-title" value="${section.title}">
             </label>
-            <label class="muted">Роли для включения</label>
-            <div class="pill-list" data-role-type="include"></div>
-            <div class="select-box" data-role-type="include">
-                <div class="select-trigger">+ Добавить роль</div>
-                <div class="select-menu"></div>
-            </div>
-            <label class="muted">Роли для исключения</label>
-            <div class="pill-list" data-role-type="exclude"></div>
-            <div class="select-box" data-role-type="exclude">
-                <div class="select-trigger">+ Исключить роль</div>
-                <div class="select-menu"></div>
+            <div class="multi-select-row">
+                <div>
+                    <label class="muted">Роли для включения</label>
+                    <select class="multi-select-input" data-role-type="include" multiple></select>
+                    <div class="multi-select__tags" data-role-tags="include"></div>
+                </div>
+                <div>
+                    <label class="muted">Роли для исключения</label>
+                    <select class="multi-select-input" data-role-type="exclude" multiple></select>
+                    <div class="multi-select__tags" data-role-tags="exclude"></div>
+                </div>
             </div>
             <button class="icon-button danger" type="button" title="Удалить секцию">
                 <i class="fa-solid fa-trash"></i>
                 <span class="sr-only">Удалить секцию</span>
             </button>
         `;
-        const includePillList = card.querySelector('.pill-list[data-role-type="include"]');
-        const excludePillList = card.querySelector('.pill-list[data-role-type="exclude"]');
-        const includeSelectBox = card.querySelector('.select-box[data-role-type="include"]');
-        const excludeSelectBox = card.querySelector('.select-box[data-role-type="exclude"]');
-        buildSelect(includeSelectBox, rolesCache, item => {
-            if (section.roleIds.includes(item.id)) {
-                return;
-            }
-            section.roleIds.push(item.id);
-            renderPills(includePillList, section.roleIds, 'include');
-        });
-        buildSelect(excludeSelectBox, rolesCache, item => {
-            if (section.excludeRoleIds.includes(item.id)) {
-                return;
-            }
-            section.excludeRoleIds.push(item.id);
-            renderPills(excludePillList, section.excludeRoleIds, 'exclude');
-        });
+        const includeSelect = card.querySelector('.multi-select-input[data-role-type="include"]');
+        const excludeSelect = card.querySelector('.multi-select-input[data-role-type="exclude"]');
+        populateRoleOptions(includeSelect, rolesCache, section.roleIds);
+        populateRoleOptions(excludeSelect, rolesCache, section.excludeRoleIds);
+        initMultiSelect(includeSelect);
+        initMultiSelect(excludeSelect);
         card.querySelector('button').addEventListener('click', () => {
             card.remove();
             updatePreview();
         });
         sectionsContainer.appendChild(card);
-        renderPills(includePillList, section.roleIds, 'include');
-        renderPills(excludePillList, section.excludeRoleIds, 'exclude');
+        syncMultiSelectTags(card);
         card.querySelector('.section-title').addEventListener('input', updatePreview);
-    }
-
-    function renderPills(container, ids, type) {
-        container.innerHTML = '';
-        ids.forEach(id => {
-            const role = rolesCache.find(r => r.id === id);
-            if (!role) return;
-            const pill = document.createElement('div');
-            pill.className = type === 'exclude' ? 'pill exclude' : 'pill';
-            pill.dataset.roleId = id;
-            pill.innerHTML = `${role.name} <button type="button">×</button>`;
-            pill.querySelector('button').addEventListener('click', () => {
-                const index = ids.indexOf(id);
-                ids.splice(index, 1);
-                renderPills(container, ids, type);
-                updatePreview();
-            });
-            container.appendChild(pill);
+        includeSelect.addEventListener('change', () => {
+            syncMultiSelectTags(card);
+            updatePreview();
         });
-        updatePreview();
+        excludeSelect.addEventListener('change', () => {
+            syncMultiSelectTags(card);
+            updatePreview();
+        });
     }
 
     function collectSectionsPayload() {
         return Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => {
-            const includeIds = Array.from(section.querySelectorAll('.pill-list[data-role-type="include"] .pill'))
-                .map(pill => pill.dataset.roleId)
-                .filter(Boolean);
-            const excludeIds = Array.from(section.querySelectorAll('.pill-list[data-role-type="exclude"] .pill'))
-                .map(pill => pill.dataset.roleId)
-                .filter(Boolean);
+            const includeSelect = section.querySelector('.multi-select-input[data-role-type="include"]');
+            const excludeSelect = section.querySelector('.multi-select-input[data-role-type="exclude"]');
+            const includeIds = includeSelect ? Array.from(includeSelect.selectedOptions).map(option => option.value) : [];
+            const excludeIds = excludeSelect ? Array.from(excludeSelect.selectedOptions).map(option => option.value) : [];
             return {
                 title: section.querySelector('.section-title').value,
                 roleIds: includeIds,
@@ -1274,31 +1314,118 @@
 
     function refreshRoleSelects() {
         sectionsContainer.querySelectorAll('.section-card').forEach(card => {
-            const includeSelectBox = card.querySelector('.select-box[data-role-type="include"]');
-            const excludeSelectBox = card.querySelector('.select-box[data-role-type="exclude"]');
-            const includePillList = card.querySelector('.pill-list[data-role-type="include"]');
-            const excludePillList = card.querySelector('.pill-list[data-role-type="exclude"]');
-            if (includeSelectBox && includePillList) {
-                buildSelect(includeSelectBox, rolesCache, item => {
-                    const existing = Array.from(includePillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
-                    if (existing.includes(item.id)) {
-                        return;
-                    }
-                    const sectionIds = existing.concat(item.id);
-                    renderPills(includePillList, sectionIds, 'include');
-                });
+            const includeSelect = card.querySelector('.multi-select-input[data-role-type="include"]');
+            const excludeSelect = card.querySelector('.multi-select-input[data-role-type="exclude"]');
+            if (includeSelect) {
+                const selected = Array.from(includeSelect.selectedOptions).map(option => option.value);
+                populateRoleOptions(includeSelect, rolesCache, selected);
+                initMultiSelect(includeSelect);
             }
-            if (excludeSelectBox && excludePillList) {
-                buildSelect(excludeSelectBox, rolesCache, item => {
-                    const existing = Array.from(excludePillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
-                    if (existing.includes(item.id)) {
-                        return;
-                    }
-                    const sectionIds = existing.concat(item.id);
-                    renderPills(excludePillList, sectionIds, 'exclude');
-                });
+            if (excludeSelect) {
+                const selected = Array.from(excludeSelect.selectedOptions).map(option => option.value);
+                populateRoleOptions(excludeSelect, rolesCache, selected);
+                initMultiSelect(excludeSelect);
             }
+            syncMultiSelectTags(card);
         });
+    }
+
+    function populateRoleOptions(select, roles, selectedIds) {
+        select.innerHTML = '';
+        roles.forEach(role => {
+            const option = document.createElement('option');
+            option.value = role.id;
+            option.textContent = role.name;
+            option.selected = selectedIds.includes(role.id);
+            select.appendChild(option);
+        });
+    }
+
+    function initMultiSelect(select) {
+        if (select.dataset.enhanced === 'true') {
+            updateMultiSelectDisplay(select);
+            return;
+        }
+        select.dataset.enhanced = 'true';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'multi-select';
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+        const toggle = document.createElement('div');
+        toggle.className = 'multi-select__toggle';
+        toggle.innerHTML = '<span>Выберите роли</span><i class="fa-solid fa-chevron-down"></i>';
+        const list = document.createElement('div');
+        list.className = 'multi-select__list';
+        wrapper.appendChild(toggle);
+        wrapper.appendChild(list);
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            wrapper.classList.toggle('open');
+        });
+        document.addEventListener('click', () => wrapper.classList.remove('open'));
+        list.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+        select.addEventListener('change', () => updateMultiSelectDisplay(select));
+        updateMultiSelectDisplay(select);
+    }
+
+    function updateMultiSelectDisplay(select) {
+        const wrapper = select.closest('.multi-select');
+        if (!wrapper) {
+            return;
+        }
+        const list = wrapper.querySelector('.multi-select__list');
+        const toggle = wrapper.querySelector('.multi-select__toggle');
+        const selected = Array.from(select.selectedOptions);
+        list.innerHTML = '';
+        Array.from(select.options).forEach(option => {
+            const item = document.createElement('div');
+            item.className = 'multi-select__item';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = option.selected;
+            const label = document.createElement('span');
+            label.textContent = option.textContent;
+            item.appendChild(checkbox);
+            item.appendChild(label);
+            item.addEventListener('click', () => {
+                option.selected = !option.selected;
+                checkbox.checked = option.selected;
+                select.dispatchEvent(new Event('change'));
+            });
+            list.appendChild(item);
+        });
+        if (selected.length === 0) {
+            toggle.querySelector('span').textContent = 'Выберите роли';
+        } else {
+            toggle.querySelector('span').textContent = `Выбрано: ${selected.length}`;
+        }
+    }
+
+    function syncMultiSelectTags(card) {
+        const includeSelect = card.querySelector('.multi-select-input[data-role-type="include"]');
+        const excludeSelect = card.querySelector('.multi-select-input[data-role-type="exclude"]');
+        const includeTags = card.querySelector('[data-role-tags="include"]');
+        const excludeTags = card.querySelector('[data-role-tags="exclude"]');
+        if (includeSelect && includeTags) {
+            includeTags.innerHTML = '';
+            Array.from(includeSelect.selectedOptions).forEach(option => {
+                const tag = document.createElement('span');
+                tag.className = 'multi-select__tag';
+                tag.textContent = option.textContent;
+                includeTags.appendChild(tag);
+            });
+        }
+        if (excludeSelect && excludeTags) {
+            excludeTags.innerHTML = '';
+            Array.from(excludeSelect.selectedOptions).forEach(option => {
+                const tag = document.createElement('span');
+                tag.className = 'multi-select__tag exclude';
+                tag.textContent = option.textContent;
+                excludeTags.appendChild(tag);
+            });
+        }
     }
 
     async function init() {

@@ -19,6 +19,8 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -90,7 +92,7 @@ public class ReportService {
             channel.editMessageById(messageId, headerText).queue(
                     success -> editExistingMessages(channel, config, messageIds, headerText, footerText, batches, index + 1),
                     error -> {
-                        log.warn("Failed to edit header message {}, sending new ones", messageId, error);
+                        handleEditFailure("header", messageId, error);
                         sendNewMessages(channel, config, headerText, footerText, batches);
                     }
             );
@@ -101,7 +103,7 @@ public class ReportService {
             channel.editMessageById(messageId, footerText).queue(
                     success -> updateRunTimestamps(config, messageIds),
                     error -> {
-                        log.warn("Failed to edit footer message {}, sending new ones", messageId, error);
+                        handleEditFailure("footer", messageId, error);
                         sendNewMessages(channel, config, headerText, footerText, batches);
                     }
             );
@@ -113,10 +115,19 @@ public class ReportService {
                     editExistingMessages(channel, config, messageIds, headerText, footerText, batches, index + 1);
                 },
                 error -> {
-                    log.warn("Failed to edit message {}, sending new ones", messageId, error);
+                    handleEditFailure("batch", messageId, error);
                     sendNewMessages(channel, config, headerText, footerText, batches);
                 }
         );
+    }
+
+    private void handleEditFailure(String label, String messageId, Throwable error) {
+        if (error instanceof ErrorResponseException responseException
+                && responseException.getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+            log.info("Report message {} ({}) no longer exists, sending new ones", messageId, label);
+            return;
+        }
+        log.warn("Failed to edit {} message {}, sending new ones", label, messageId, error);
     }
 
     private void deleteOldMessages(TextChannel channel, List<String> messageIds) {
@@ -222,13 +233,16 @@ public class ReportService {
         return roles;
     }
 
-    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles) {
+    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles, List<Role> excludedRoles) {
         Map<Member, List<String>> members = new LinkedHashMap<>();
         Set<Member> orderedMembers = new LinkedHashSet<>();
         for (Role role : roles) {
             orderedMembers.addAll(guild.getMembersWithRoles(role));
         }
         for (Member member : orderedMembers) {
+            if (!excludedRoles.isEmpty() && excludedRoles.stream().anyMatch(member.getRoles()::contains)) {
+                continue;
+            }
             List<String> matched = new ArrayList<>();
             for (Role role : roles) {
                 if (member.getRoles().contains(role)) {
@@ -257,7 +271,9 @@ public class ReportService {
 
         for (ReportSection section : sections) {
             List<Role> roles = resolveRoles(guild, section.getRoleIds());
-            Map<Member, List<String>> memberRoles = collectMembersWithRoles(guild, roles);
+            List<String> excludeIds = section.getExcludeRoleIds() != null ? section.getExcludeRoleIds() : List.of();
+            List<Role> excludedRoles = resolveRoles(guild, excludeIds);
+            Map<Member, List<String>> memberRoles = collectMembersWithRoles(guild, roles, excludedRoles);
             List<String> lines = new ArrayList<>();
             int index = 1;
             for (Map.Entry<Member, List<String>> entry : memberRoles.entrySet()) {

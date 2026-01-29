@@ -446,6 +446,10 @@
             align-items: center;
             gap: 6px;
         }
+        .pill.exclude {
+            background: rgba(248, 113, 113, 0.2);
+            color: #fda4af;
+        }
         .pill button {
             background: transparent;
             border: none;
@@ -963,16 +967,23 @@
         };
     }
 
-    function addSection(section = { title: '', roleIds: [] }) {
+    function addSection(section = { title: '', roleIds: [], excludeRoleIds: [] }) {
         const card = document.createElement('div');
         card.className = 'section-card';
         card.innerHTML = `
             <label>Название секции
                 <input type="text" class="section-title" value="${section.title}">
             </label>
-            <div class="pill-list"></div>
-            <div class="select-box">
-                <div class="select-trigger">+ Добавить роль в секцию</div>
+            <label class="muted">Роли для включения</label>
+            <div class="pill-list" data-role-type="include"></div>
+            <div class="select-box" data-role-type="include">
+                <div class="select-trigger">+ Добавить роль</div>
+                <div class="select-menu"></div>
+            </div>
+            <label class="muted">Роли для исключения</label>
+            <div class="pill-list" data-role-type="exclude"></div>
+            <div class="select-box" data-role-type="exclude">
+                <div class="select-trigger">+ Исключить роль</div>
                 <div class="select-menu"></div>
             </div>
             <button class="icon-button danger" type="button" title="Удалить секцию">
@@ -980,37 +991,47 @@
                 <span class="sr-only">Удалить секцию</span>
             </button>
         `;
-        const pillList = card.querySelector('.pill-list');
-        const selectBox = card.querySelector('.select-box');
-        buildSelect(selectBox, rolesCache, item => {
+        const includePillList = card.querySelector('.pill-list[data-role-type="include"]');
+        const excludePillList = card.querySelector('.pill-list[data-role-type="exclude"]');
+        const includeSelectBox = card.querySelector('.select-box[data-role-type="include"]');
+        const excludeSelectBox = card.querySelector('.select-box[data-role-type="exclude"]');
+        buildSelect(includeSelectBox, rolesCache, item => {
             if (section.roleIds.includes(item.id)) {
                 return;
             }
             section.roleIds.push(item.id);
-            renderPills(pillList, section.roleIds);
+            renderPills(includePillList, section.roleIds, 'include');
+        });
+        buildSelect(excludeSelectBox, rolesCache, item => {
+            if (section.excludeRoleIds.includes(item.id)) {
+                return;
+            }
+            section.excludeRoleIds.push(item.id);
+            renderPills(excludePillList, section.excludeRoleIds, 'exclude');
         });
         card.querySelector('button').addEventListener('click', () => {
             card.remove();
             updatePreview();
         });
         sectionsContainer.appendChild(card);
-        renderPills(pillList, section.roleIds);
+        renderPills(includePillList, section.roleIds, 'include');
+        renderPills(excludePillList, section.excludeRoleIds, 'exclude');
         card.querySelector('.section-title').addEventListener('input', updatePreview);
     }
 
-    function renderPills(container, ids) {
+    function renderPills(container, ids, type) {
         container.innerHTML = '';
         ids.forEach(id => {
             const role = rolesCache.find(r => r.id === id);
             if (!role) return;
             const pill = document.createElement('div');
-            pill.className = 'pill';
+            pill.className = type === 'exclude' ? 'pill exclude' : 'pill';
             pill.dataset.roleId = id;
             pill.innerHTML = `${role.name} <button type="button">×</button>`;
             pill.querySelector('button').addEventListener('click', () => {
                 const index = ids.indexOf(id);
                 ids.splice(index, 1);
-                renderPills(container, ids);
+                renderPills(container, ids, type);
                 updatePreview();
             });
             container.appendChild(pill);
@@ -1019,10 +1040,19 @@
     }
 
     function collectSectionsPayload() {
-        return Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => ({
-            title: section.querySelector('.section-title').value,
-            roleIds: Array.from(section.querySelectorAll('.pill')).map(pill => pill.dataset.roleId).filter(Boolean)
-        }));
+        return Array.from(sectionsContainer.querySelectorAll('.section-card')).map(section => {
+            const includeIds = Array.from(section.querySelectorAll('.pill-list[data-role-type="include"] .pill'))
+                .map(pill => pill.dataset.roleId)
+                .filter(Boolean);
+            const excludeIds = Array.from(section.querySelectorAll('.pill-list[data-role-type="exclude"] .pill'))
+                .map(pill => pill.dataset.roleId)
+                .filter(Boolean);
+            return {
+                title: section.querySelector('.section-title').value,
+                roleIds: includeIds,
+                excludeRoleIds: excludeIds
+            };
+        });
     }
 
     function renderPreviewHeader(name) {
@@ -1244,16 +1274,28 @@
 
     function refreshRoleSelects() {
         sectionsContainer.querySelectorAll('.section-card').forEach(card => {
-            const selectBox = card.querySelector('.select-box');
-            if (selectBox) {
-                buildSelect(selectBox, rolesCache, item => {
-                    const pillList = card.querySelector('.pill-list');
-                    const existing = Array.from(pillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
+            const includeSelectBox = card.querySelector('.select-box[data-role-type="include"]');
+            const excludeSelectBox = card.querySelector('.select-box[data-role-type="exclude"]');
+            const includePillList = card.querySelector('.pill-list[data-role-type="include"]');
+            const excludePillList = card.querySelector('.pill-list[data-role-type="exclude"]');
+            if (includeSelectBox && includePillList) {
+                buildSelect(includeSelectBox, rolesCache, item => {
+                    const existing = Array.from(includePillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
                     if (existing.includes(item.id)) {
                         return;
                     }
                     const sectionIds = existing.concat(item.id);
-                    renderPills(pillList, sectionIds);
+                    renderPills(includePillList, sectionIds, 'include');
+                });
+            }
+            if (excludeSelectBox && excludePillList) {
+                buildSelect(excludeSelectBox, rolesCache, item => {
+                    const existing = Array.from(excludePillList.querySelectorAll('.pill')).map(pill => pill.dataset.roleId);
+                    if (existing.includes(item.id)) {
+                        return;
+                    }
+                    const sectionIds = existing.concat(item.id);
+                    renderPills(excludePillList, sectionIds, 'exclude');
                 });
             }
         });

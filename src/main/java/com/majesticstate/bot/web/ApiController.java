@@ -300,7 +300,9 @@ public class ApiController {
         List<PreviewSectionResponse> sections = request.sections().stream()
                 .map(section -> {
                     List<Role> roles = resolveRoles(guild, section.roleIds());
-                    Map<Member, List<String>> members = collectMembersWithRoles(guild, roles);
+                    List<String> excludeIds = section.excludeRoleIds() != null ? section.excludeRoleIds() : List.of();
+                    List<Role> excludedRoles = resolveRoles(guild, excludeIds);
+                    Map<Member, List<String>> members = collectMembersWithRoles(guild, roles, excludedRoles);
                     List<MemberPreview> memberPreviews = members.entrySet().stream()
                             .map(entry -> new MemberPreview(
                                     entry.getKey().getEffectiveName(),
@@ -365,13 +367,16 @@ public class ApiController {
         return roles;
     }
 
-    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles) {
+    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles, List<Role> excludedRoles) {
         Map<Member, List<String>> members = new LinkedHashMap<>();
         Set<Member> orderedMembers = new LinkedHashSet<>();
         for (Role role : roles) {
             orderedMembers.addAll(guild.getMembersWithRoles(role));
         }
         for (Member member : orderedMembers) {
+            if (!excludedRoles.isEmpty() && excludedRoles.stream().anyMatch(member.getRoles()::contains)) {
+                continue;
+            }
             List<String> matched = new ArrayList<>();
             for (Role role : roles) {
                 if (member.getRoles().contains(role)) {
@@ -438,7 +443,9 @@ public class ApiController {
     public record PreviewRequest(@NotBlank String guildId, @NotNull List<PreviewSectionRequest> sections) {
     }
 
-    public record PreviewSectionRequest(@NotNull String title, @NotNull List<String> roleIds) {
+    public record PreviewSectionRequest(@NotNull String title,
+                                        @NotNull List<String> roleIds,
+                                        List<String> excludeRoleIds) {
     }
 
     public record PreviewResponse(boolean online, String message, List<PreviewSectionResponse> sections) {

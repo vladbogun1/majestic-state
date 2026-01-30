@@ -369,8 +369,7 @@ public class ReportService {
     private String buildFooterText(ReportConfig config) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
                 .withZone(ZoneId.systemDefault());
-        Instant lastRun = config.getLastRunAt() != null ? config.getLastRunAt() : Instant.now();
-        String updated = formatter.format(lastRun);
+        String updated = formatter.format(Instant.now());
         return "_Обновлено: " + updated + "_";
     }
 

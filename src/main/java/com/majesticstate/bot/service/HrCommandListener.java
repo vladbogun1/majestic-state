@@ -23,6 +23,7 @@ import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
@@ -99,7 +100,10 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                 event.reply("Только @Старший состав может обрабатывать запросы.").setEphemeral(true).queue();
                 return;
             }
-            applyPromotionDecision(event, true, null);
+            event.deferReply(true).queue(
+                    hook -> applyPromotionDecision(event.getMessage(), event.getMember(), true, null, hook),
+                    error -> botLogService.log("WARN", "Failed to defer promotion approval interaction: " + error.getMessage())
+            );
             return;
         }
         if (componentId.startsWith(REJECT_BUTTON_PREFIX)) {
@@ -151,11 +155,12 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                 event.reply("Канал с заявкой не найден.").setEphemeral(true).queue();
                 return;
             }
-            channel.retrieveMessageById(messageId).queue(
-                    message -> {
-                        updatePromotionRequestMessage(message, event.getMember(), false, reason == null ? "Не указана" : reason.getAsString(), event);
-                    },
-                    error -> event.reply("Сообщение с заявкой не найдено.").setEphemeral(true).queue()
+            event.deferReply(true).queue(
+                    hook -> channel.retrieveMessageById(messageId).queue(
+                            message -> updatePromotionRequestMessage(message, event.getMember(), false, reason == null ? "Не указана" : reason.getAsString(), hook),
+                            error -> hook.editOriginal("Сообщение с заявкой не найдено.").queue()
+                    ),
+                    error -> botLogService.log("WARN", "Failed to defer promotion rejection interaction: " + error.getMessage())
             );
         }
     }
@@ -282,17 +287,21 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
         );
     }
 
-    private void applyPromotionDecision(ButtonInteractionEvent event, boolean approved, String rejectReason) {
-        updatePromotionRequestMessage(event.getMessage(), event.getMember(), approved, rejectReason, event);
+    private void applyPromotionDecision(Message message,
+                                        Member reviewer,
+                                        boolean approved,
+                                        String rejectReason,
+                                        InteractionHook hook) {
+        updatePromotionRequestMessage(message, reviewer, approved, rejectReason, hook);
     }
 
     private void updatePromotionRequestMessage(Message message,
                                                Member reviewer,
                                                boolean approved,
                                                String rejectReason,
-                                               net.dv8tion.jda.api.interactions.callbacks.IReplyCallback callback) {
+                                               InteractionHook hook) {
         if (message.getEmbeds().isEmpty()) {
-            callback.reply("У сообщения нет embed для обновления.").setEphemeral(true).queue();
+            hook.editOriginal("У сообщения нет embed для обновления.").queue();
             return;
         }
         var original = message.getEmbeds().getFirst();
@@ -314,24 +323,22 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
         message.editMessageEmbeds(embed.build()).setComponents(rows).queue(
                 success -> {
                     if (approved) {
-                        sendApprovedPromotionAudit(message, reviewer, callback);
+                        sendApprovedPromotionAudit(message, reviewer, hook);
                     } else {
-                        callback.reply("Запрос отклонён.").setEphemeral(true).queue();
+                        hook.editOriginal("Запрос отклонён.").queue();
                     }
                 },
-                error -> callback.reply("Не удалось обновить сообщение с заявкой.").setEphemeral(true).queue()
+                error -> hook.editOriginal("Не удалось обновить сообщение с заявкой.").queue()
         );
     }
 
 
     private void sendApprovedPromotionAudit(Message requestMessage,
                                             Member reviewer,
-                                            net.dv8tion.jda.api.interactions.callbacks.IReplyCallback callback) {
+                                            InteractionHook hook) {
         PromotionRequestPayload payload = extractPromotionRequestPayload(requestMessage);
         if (payload == null) {
-            callback.reply("Запрос одобрен, но не удалось собрать данные для кадрового сообщения о повышении.")
-                    .setEphemeral(true)
-                    .queue();
+            hook.editOriginal("Запрос одобрен, но не удалось собрать данные для кадрового сообщения о повышении.").queue();
             return;
         }
 
@@ -343,17 +350,13 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                 requestMessage.getChannel().getId()
         );
         if (targetChannel == null) {
-            callback.reply("Запрос одобрен, но не удалось определить канал для кадрового повышения.")
-                    .setEphemeral(true)
-                    .queue();
+            hook.editOriginal("Запрос одобрен, но не удалось определить канал для кадрового повышения.").queue();
             return;
         }
 
         User employee = requestMessage.getJDA().getUserById(payload.userId());
         if (employee == null) {
-            callback.reply("Запрос одобрен, но пользователь из заявки не найден для кадрового повышения.")
-                    .setEphemeral(true)
-                    .queue();
+            hook.editOriginal("Запрос одобрен, но пользователь из заявки не найден для кадрового повышения.").queue();
             return;
         }
 
@@ -372,12 +375,8 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
         );
         String content = reviewer.getAsMention() + " заполнил(а) кадровый аудит на " + employee.getAsMention();
         targetChannel.sendMessage(content).setEmbeds(embed.build()).queue(
-                success -> callback.reply("Запрос одобрен, кадровое повышение отправлено в " + targetChannel.getAsMention() + ".")
-                        .setEphemeral(true)
-                        .queue(),
-                error -> callback.reply("Запрос одобрен, но не удалось отправить кадровое повышение в канал.")
-                        .setEphemeral(true)
-                        .queue()
+                success -> hook.editOriginal("Запрос одобрен, кадровое повышение отправлено в " + targetChannel.getAsMention() + ".").queue(),
+                error -> hook.editOriginal("Запрос одобрен, но не удалось отправить кадровое повышение в канал.").queue()
         );
     }
 

@@ -32,7 +32,6 @@ import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
-import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
 import org.springframework.stereotype.Component;
@@ -109,7 +108,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
             String messageId = event.getMessageId();
             String channelId = event.getChannel().getId();
             Modal modal = Modal.create(REJECT_MODAL_PREFIX + channelId + ":" + messageId, "Отклонение запроса")
-                    .addActionRow(TextInput.create("reason", "Причина отклонения", TextInputStyle.PARAGRAPH)
+                    .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("reason", "Причина отклонения", TextInputStyle.PARAGRAPH)
                             .setRequired(true)
                             .setMinLength(3)
                             .setMaxLength(400)
@@ -221,10 +220,26 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
             return;
         }
         Modal modal = Modal.create(REQUEST_PROMOTION_COMMAND, "Запрос на повышение")
-                .addActionRow(textInput("passport", "Номер паспорта", 1, 32, TextInputStyle.SHORT))
-                .addActionRow(textInput("current-rank", "Текущий ранг", 1, 32, TextInputStyle.SHORT))
-                .addActionRow(textInput("new-rank", "Новый ранг", 1, 32, TextInputStyle.SHORT))
-                .addActionRow(textInput("approved-report", "Ссылка на одобренный отчёт", 5, 400, TextInputStyle.PARAGRAPH))
+                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("passport", "Номер паспорта", TextInputStyle.SHORT)
+                        .setRequired(true)
+                        .setMinLength(1)
+                        .setMaxLength(32)
+                        .build())
+                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("current-rank", "Текущий ранг", TextInputStyle.SHORT)
+                        .setRequired(true)
+                        .setMinLength(1)
+                        .setMaxLength(32)
+                        .build())
+                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("new-rank", "Новый ранг", TextInputStyle.SHORT)
+                        .setRequired(true)
+                        .setMinLength(1)
+                        .setMaxLength(32)
+                        .build())
+                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("approved-report", "Ссылка на одобренный отчёт", TextInputStyle.PARAGRAPH)
+                        .setRequired(true)
+                        .setMinLength(5)
+                        .setMaxLength(400)
+                        .build())
                 .build();
         event.replyModal(modal).queue();
     }
@@ -496,14 +511,6 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
     private OptionData channelOption(String name, String description, boolean required) {
         return new OptionData(OptionType.CHANNEL, name, description, required)
                 .setChannelTypes(net.dv8tion.jda.api.entities.channel.ChannelType.TEXT);
-    }
-
-    private TextInput textInput(String id, String label, int minLength, int maxLength, TextInputStyle style) {
-        return TextInput.create(id, label, style)
-                .setRequired(true)
-                .setMinLength(minLength)
-                .setMaxLength(maxLength)
-                .build();
     }
 
     private String optionString(SlashCommandInteractionEvent event, String name) {

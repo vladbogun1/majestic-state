@@ -451,7 +451,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                                          HrActionType actionType,
                                          String actionText) {
         String employeeMention = employee.getAsMention();
-        String employeeLine = employeeMention + " | " + employeeDisplayName + " | " + employee.getId();
+        String employeeLine = employeeMention + " | " + employeeDisplayName;
         return new EmbedBuilder()
                 .setColor(actionType.getColor())
                 .setTitle("📄 Кадровый аудит | " + actionType.getEmoji() + " " + actionType.getDisplayName())
@@ -481,7 +481,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
     }
 
     private String memberSummary(Member member) {
-        return member.getEffectiveName() + " | " + member.getId();
+        return member.getEffectiveName();
     }
 
     private boolean hasSeniorRole(Member member) {

@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-store">
     <title>Discord Report Bot - Вход</title>
     <style>
         body {
@@ -95,6 +96,14 @@
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
     const title = document.getElementById('title');
+
+    fetch('/api/session')
+        .then(res => res.json())
+        .then(data => {
+            if (data.authenticated) {
+                window.location.href = '/app/index.html';
+            }
+        });
 
     fetch('/api/bootstrap')
         .then(res => res.json())

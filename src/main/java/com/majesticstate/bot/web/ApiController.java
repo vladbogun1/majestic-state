@@ -19,12 +19,18 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -102,18 +108,23 @@ public class ApiController {
         if (adminId == null) {
             return Map.of("authenticated", false);
         }
-        return Map.of("authenticated", true, "adminId", adminId);
+        AdminUser admin = adminService.findById(Long.valueOf(adminId.toString())).orElse(null);
+        boolean primary = admin != null && admin.isPrimaryAdmin();
+        return Map.of("authenticated", true, "adminId", adminId, "primaryAdmin", primary);
     }
 
     @GetMapping("/admins")
     public List<AdminSummary> admins() {
         return adminService.listAdmins().stream()
-                .map(admin -> new AdminSummary(admin.getId(), admin.getUsername(), admin.getCreatedAt()))
+                .map(admin -> new AdminSummary(admin.getId(), admin.getUsername(), admin.getCreatedAt(), admin.isPrimaryAdmin()))
                 .collect(Collectors.toList());
     }
 
     @PostMapping("/admins")
-    public ResponseEntity<?> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
+    public ResponseEntity<?> createAdmin(@Valid @RequestBody AdminCreateRequest request, HttpServletRequest servletRequest) {
+        if (adminService.hasAdmins() && !currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
         if (adminService.findByUsername(request.username()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Username already exists"));
         }
@@ -124,6 +135,9 @@ public class ApiController {
 
     @PostMapping("/admins/change-password")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
         Object adminId = servletRequest.getSession().getAttribute(SessionAuthInterceptor.ADMIN_SESSION_KEY);
         if (adminId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Not authenticated"));
@@ -134,6 +148,36 @@ public class ApiController {
         }
         if (!passwordService.matches(request.currentPassword(), admin.getPasswordSalt(), admin.getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Current password incorrect"));
+        }
+        adminService.changePassword(admin, request.newPassword());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PutMapping("/admins/{id}/primary")
+    public ResponseEntity<?> updateAdminPrimary(@PathVariable Long id,
+                                                @Valid @RequestBody AdminPrimaryRequest request,
+                                                HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
+        AdminUser admin = adminService.findById(id).orElse(null);
+        if (admin == null) {
+            return ResponseEntity.notFound().build();
+        }
+        adminService.setPrimary(admin, request.primary());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PutMapping("/admins/{id}/password")
+    public ResponseEntity<?> updateAdminPassword(@PathVariable Long id,
+                                                 @Valid @RequestBody AdminResetPasswordRequest request,
+                                                 HttpServletRequest servletRequest) {
+        if (!currentAdminIsPrimary(servletRequest)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Not authorized"));
+        }
+        AdminUser admin = adminService.findById(id).orElse(null);
+        if (admin == null) {
+            return ResponseEntity.notFound().build();
         }
         adminService.changePassword(admin, request.newPassword());
         return ResponseEntity.ok(Map.of("status", "ok"));
@@ -244,6 +288,35 @@ public class ApiController {
         return ResponseEntity.ok(Map.of("status", "queued"));
     }
 
+    @PostMapping("/reports/preview")
+    public PreviewResponse previewReport(@Valid @RequestBody PreviewRequest request) {
+        if (botManager.getJda().isEmpty()) {
+            return new PreviewResponse(false, "Бот выключен.", List.of());
+        }
+        Guild guild = botManager.getJda().get().getGuildById(request.guildId());
+        if (guild == null) {
+            return new PreviewResponse(true, "Сервер не найден.", List.of());
+        }
+        List<PreviewSectionResponse> sections = request.sections().stream()
+                .map(section -> {
+                    List<Role> roles = resolveRoles(guild, section.roleIds());
+                    List<String> excludeIds = section.excludeRoleIds() != null ? section.excludeRoleIds() : List.of();
+                    List<Role> excludedRoles = resolveRoles(guild, excludeIds);
+                    Map<Member, List<String>> members = collectMembersWithRoles(guild, roles, excludedRoles);
+                    List<MemberPreview> memberPreviews = members.entrySet().stream()
+                            .map(entry -> new MemberPreview(
+                                    entry.getKey().getEffectiveName(),
+                                    entry.getKey().getAsMention(),
+                                    entry.getKey().getId(),
+                                    entry.getValue()
+                            ))
+                            .collect(Collectors.toList());
+                    return new PreviewSectionResponse(section.title(), memberPreviews);
+                })
+                .collect(Collectors.toList());
+        return new PreviewResponse(true, null, sections);
+    }
+
     private void applyReportRequest(ReportConfig config, ReportRequest request) throws Exception {
         config.setName(request.name());
         config.setGuildId(request.guildId());
@@ -271,6 +344,50 @@ public class ApiController {
         );
     }
 
+    private boolean currentAdminIsPrimary(HttpServletRequest servletRequest) {
+        return currentAdmin(servletRequest).map(AdminUser::isPrimaryAdmin).orElse(false);
+    }
+
+    private Optional<AdminUser> currentAdmin(HttpServletRequest servletRequest) {
+        Object adminId = servletRequest.getSession().getAttribute(SessionAuthInterceptor.ADMIN_SESSION_KEY);
+        if (adminId == null) {
+            return Optional.empty();
+        }
+        return adminService.findById(Long.valueOf(adminId.toString()));
+    }
+
+    private List<Role> resolveRoles(Guild guild, List<String> roleIds) {
+        List<Role> roles = new ArrayList<>();
+        for (String roleId : roleIds) {
+            Role role = guild.getRoleById(roleId);
+            if (role != null) {
+                roles.add(role);
+            }
+        }
+        return roles;
+    }
+
+    private Map<Member, List<String>> collectMembersWithRoles(Guild guild, List<Role> roles, List<Role> excludedRoles) {
+        Map<Member, List<String>> members = new LinkedHashMap<>();
+        Set<Member> orderedMembers = new LinkedHashSet<>();
+        for (Role role : roles) {
+            orderedMembers.addAll(guild.getMembersWithRoles(role));
+        }
+        for (Member member : orderedMembers) {
+            if (!excludedRoles.isEmpty() && excludedRoles.stream().anyMatch(member.getRoles()::contains)) {
+                continue;
+            }
+            List<String> matched = new ArrayList<>();
+            for (Role role : roles) {
+                if (member.getRoles().contains(role)) {
+                    matched.add(role.getName());
+                }
+            }
+            members.put(member, matched);
+        }
+        return members;
+    }
+
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
     }
 
@@ -280,7 +397,13 @@ public class ApiController {
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {
     }
 
-    public record AdminSummary(Long id, String username, Instant createdAt) {
+    public record AdminSummary(Long id, String username, Instant createdAt, boolean primaryAdmin) {
+    }
+
+    public record AdminPrimaryRequest(@NotNull Boolean primary) {
+    }
+
+    public record AdminResetPasswordRequest(@NotBlank String newPassword) {
     }
 
     public record GuildSummary(String id, String name) {
@@ -315,6 +438,23 @@ public class ApiController {
             String lastMessageId,
             Instant lastRunAt
     ) {
+    }
+
+    public record PreviewRequest(@NotBlank String guildId, @NotNull List<PreviewSectionRequest> sections) {
+    }
+
+    public record PreviewSectionRequest(@NotNull String title,
+                                        @NotNull List<String> roleIds,
+                                        List<String> excludeRoleIds) {
+    }
+
+    public record PreviewResponse(boolean online, String message, List<PreviewSectionResponse> sections) {
+    }
+
+    public record PreviewSectionResponse(String title, List<MemberPreview> members) {
+    }
+
+    public record MemberPreview(String displayName, String mention, String id, List<String> roles) {
     }
 
     public record BotSettingsRequest(@NotNull String token, boolean enabled, boolean restartIfRunning) {

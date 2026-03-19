@@ -3,7 +3,6 @@ package com.majesticstate.bot.service;
 import com.majesticstate.bot.domain.BotSettings;
 import jakarta.annotation.PreDestroy;
 import java.util.Optional;
-import javax.security.auth.login.LoginException;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -61,8 +60,11 @@ public class DiscordBotManager {
                     .build()
                     .awaitReady();
             botLogService.log("INFO", "Bot started and connected to Discord");
-        } catch (LoginException | InterruptedException ex) {
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            botLogService.log("ERROR", "Bot start interrupted: " + ex.getMessage());
+            log.error("Bot start interrupted", ex);
+        } catch (Exception ex) {
             botLogService.log("ERROR", "Failed to start bot: " + ex.getMessage());
             log.error("Failed to start bot", ex);
         }

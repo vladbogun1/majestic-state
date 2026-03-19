@@ -33,6 +33,10 @@ public class AdminService {
         return repository.findAll();
     }
 
+    public boolean hasPrimaryAdmins() {
+        return repository.countByPrimaryAdminTrue() > 0;
+    }
+
     @Transactional
     public AdminUser createAdmin(String username, String password) {
         String salt = passwordService.generateSalt();
@@ -41,6 +45,9 @@ public class AdminService {
         adminUser.setUsername(username);
         adminUser.setPasswordSalt(salt);
         adminUser.setPasswordHash(hash);
+        if (repository.count() == 0) {
+            adminUser.setPrimaryAdmin(true);
+        }
         return repository.save(adminUser);
     }
 
@@ -50,6 +57,12 @@ public class AdminService {
         String hash = passwordService.hashPassword(newPassword, salt);
         adminUser.setPasswordSalt(salt);
         adminUser.setPasswordHash(hash);
+        repository.save(adminUser);
+    }
+
+    @Transactional
+    public void setPrimary(AdminUser adminUser, boolean primary) {
+        adminUser.setPrimaryAdmin(primary);
         repository.save(adminUser);
     }
 }

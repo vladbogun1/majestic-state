@@ -2,8 +2,10 @@ package com.majesticstate.bot.service;
 
 import com.majesticstate.bot.domain.BotSettings;
 import jakarta.annotation.PreDestroy;
+import java.util.List;
 import java.util.Optional;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
@@ -20,11 +22,13 @@ public class DiscordBotManager {
 
     private final BotSettingsService settingsService;
     private final BotLogService botLogService;
+    private final List<ListenerAdapter> listeners;
     private JDA jda;
 
-    public DiscordBotManager(BotSettingsService settingsService, BotLogService botLogService) {
+    public DiscordBotManager(BotSettingsService settingsService, BotLogService botLogService, List<ListenerAdapter> listeners) {
         this.settingsService = settingsService;
         this.botLogService = botLogService;
+        this.listeners = listeners;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -57,6 +61,7 @@ public class DiscordBotManager {
                     .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
                     .setMemberCachePolicy(MemberCachePolicy.ALL)
                     .setChunkingFilter(ChunkingFilter.ALL)
+                    .addEventListeners(listeners.toArray())
                     .build()
                     .awaitReady();
             botLogService.log("INFO", "Bot started and connected to Discord");

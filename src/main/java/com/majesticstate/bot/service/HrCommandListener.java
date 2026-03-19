@@ -30,9 +30,11 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
-import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
 import org.springframework.stereotype.Component;
 
@@ -107,12 +109,13 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
             }
             String messageId = event.getMessageId();
             String channelId = event.getChannel().getId();
+            TextInput reasonInput = TextInput.create("reason", TextInputStyle.PARAGRAPH)
+                    .setRequired(true)
+                    .setMinLength(3)
+                    .setMaxLength(400)
+                    .build();
             Modal modal = Modal.create(REJECT_MODAL_PREFIX + channelId + ":" + messageId, "Отклонение запроса")
-                    .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("reason", "Причина отклонения", TextInputStyle.PARAGRAPH)
-                            .setRequired(true)
-                            .setMinLength(3)
-                            .setMaxLength(400)
-                            .build())
+                    .addComponents(Label.of("Причина отклонения", reasonInput))
                     .build();
             event.replyModal(modal).queue();
         }
@@ -219,27 +222,33 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
             event.reply("Не удалось определить канал для запроса на повышение.").setEphemeral(true).queue();
             return;
         }
+        TextInput passportInput = TextInput.create("passport", TextInputStyle.SHORT)
+                .setRequired(true)
+                .setMinLength(1)
+                .setMaxLength(32)
+                .build();
+        TextInput currentRankInput = TextInput.create("current-rank", TextInputStyle.SHORT)
+                .setRequired(true)
+                .setMinLength(1)
+                .setMaxLength(32)
+                .build();
+        TextInput newRankInput = TextInput.create("new-rank", TextInputStyle.SHORT)
+                .setRequired(true)
+                .setMinLength(1)
+                .setMaxLength(32)
+                .build();
+        TextInput approvedReportInput = TextInput.create("approved-report", TextInputStyle.PARAGRAPH)
+                .setRequired(true)
+                .setMinLength(5)
+                .setMaxLength(400)
+                .build();
         Modal modal = Modal.create(REQUEST_PROMOTION_COMMAND, "Запрос на повышение")
-                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("passport", "Номер паспорта", TextInputStyle.SHORT)
-                        .setRequired(true)
-                        .setMinLength(1)
-                        .setMaxLength(32)
-                        .build())
-                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("current-rank", "Текущий ранг", TextInputStyle.SHORT)
-                        .setRequired(true)
-                        .setMinLength(1)
-                        .setMaxLength(32)
-                        .build())
-                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("new-rank", "Новый ранг", TextInputStyle.SHORT)
-                        .setRequired(true)
-                        .setMinLength(1)
-                        .setMaxLength(32)
-                        .build())
-                .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("approved-report", "Ссылка на одобренный отчёт", TextInputStyle.PARAGRAPH)
-                        .setRequired(true)
-                        .setMinLength(5)
-                        .setMaxLength(400)
-                        .build())
+                .addComponents(
+                        Label.of("Номер паспорта", passportInput),
+                        Label.of("Текущий ранг", currentRankInput),
+                        Label.of("Новый ранг", newRankInput),
+                        Label.of("Ссылка на одобренный отчёт", approvedReportInput)
+                )
                 .build();
         event.replyModal(modal).queue();
     }

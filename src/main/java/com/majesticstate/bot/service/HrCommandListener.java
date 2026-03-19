@@ -100,8 +100,8 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                 event.reply("Только @Старший состав может обрабатывать запросы.").setEphemeral(true).queue();
                 return;
             }
-            event.deferReply(true).queue(
-                    hook -> applyPromotionDecision(event.getMessage(), event.getMember(), true, null, hook),
+            event.deferEdit().queue(
+                    success -> applyPromotionDecision(event.getMessage(), event.getMember(), true, null, null),
                     error -> botLogService.log("WARN", "Failed to defer promotion approval interaction: " + error.getMessage())
             );
             return;
@@ -301,7 +301,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                                                String rejectReason,
                                                InteractionHook hook) {
         if (message.getEmbeds().isEmpty()) {
-            hook.editOriginal("У сообщения нет embed для обновления.").queue();
+            updateDeferredResponse(hook, "У сообщения нет embed для обновления.");
             return;
         }
         var original = message.getEmbeds().getFirst();
@@ -325,10 +325,10 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                     if (approved) {
                         sendApprovedPromotionAudit(message, reviewer, hook);
                     } else {
-                        hook.editOriginal("Запрос отклонён.").queue();
+                        updateDeferredResponse(hook, "Запрос отклонён.");
                     }
                 },
-                error -> hook.editOriginal("Не удалось обновить сообщение с заявкой.").queue()
+                error -> updateDeferredResponse(hook, "Не удалось обновить сообщение с заявкой.")
         );
     }
 
@@ -338,7 +338,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                                             InteractionHook hook) {
         PromotionRequestPayload payload = extractPromotionRequestPayload(requestMessage);
         if (payload == null) {
-            hook.editOriginal("Запрос одобрен, но не удалось собрать данные для кадрового сообщения о повышении.").queue();
+            updateDeferredResponse(hook, "Запрос одобрен, но не удалось собрать данные для кадрового сообщения о повышении.");
             return;
         }
 
@@ -350,13 +350,13 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                 requestMessage.getChannel().getId()
         );
         if (targetChannel == null) {
-            hook.editOriginal("Запрос одобрен, но не удалось определить канал для кадрового повышения.").queue();
+            updateDeferredResponse(hook, "Запрос одобрен, но не удалось определить канал для кадрового повышения.");
             return;
         }
 
         User employee = requestMessage.getJDA().getUserById(payload.userId());
         if (employee == null) {
-            hook.editOriginal("Запрос одобрен, но пользователь из заявки не найден для кадрового повышения.").queue();
+            updateDeferredResponse(hook, "Запрос одобрен, но пользователь из заявки не найден для кадрового повышения.");
             return;
         }
 
@@ -375,9 +375,17 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
         );
         String content = reviewer.getAsMention() + " заполнил(а) кадровый аудит на " + employee.getAsMention();
         targetChannel.sendMessage(content).setEmbeds(embed.build()).queue(
-                success -> hook.editOriginal("Запрос одобрен, кадровое повышение отправлено в " + targetChannel.getAsMention() + ".").queue(),
-                error -> hook.editOriginal("Запрос одобрен, но не удалось отправить кадровое повышение в канал.").queue()
+                success -> updateDeferredResponse(hook, "Запрос одобрен, кадровое повышение отправлено в " + targetChannel.getAsMention() + "."),
+                error -> updateDeferredResponse(hook, "Запрос одобрен, но не удалось отправить кадровое повышение в канал.")
         );
+    }
+
+
+    private void updateDeferredResponse(InteractionHook hook, String message) {
+        if (hook == null) {
+            return;
+        }
+        hook.editOriginal(message).queue();
     }
 
     private PromotionRequestPayload extractPromotionRequestPayload(Message requestMessage) {

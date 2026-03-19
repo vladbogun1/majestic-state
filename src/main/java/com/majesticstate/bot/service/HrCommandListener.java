@@ -8,6 +8,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -44,6 +46,7 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
     private static final String REJECT_BUTTON_PREFIX = "hr:reject:";
     private static final String REJECT_MODAL_PREFIX = "hr:reject-modal:";
     private static final ZoneId MOSCOW_ZONE = ZoneId.of("Europe/Moscow");
+    private static final Pattern USER_MENTION_PATTERN = Pattern.compile("<@!?(\\d+)>");
     private static final DateTimeFormatter MOSCOW_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm '(по МСК)'", new Locale("ru", "RU"));
 
@@ -182,14 +185,9 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
 
     private void handleAuditCommand(SlashCommandInteractionEvent event, HrActionType actionType) {
         HrChannelSettings settings = hrChannelSettingsService.findByGuildId(event.getGuild().getId()).orElse(null);
-        if (settings == null) {
-            event.reply("Сначала настройте кадровые каналы через /" + CONFIG_COMMAND + ".").setEphemeral(true).queue();
-            return;
-        }
-        String targetChannelId = hrChannelSettingsService.resolveChannelId(settings, actionType);
-        TextChannel targetChannel = event.getGuild().getTextChannelById(targetChannelId);
+        TextChannel targetChannel = resolveAuditTargetChannel(event.getGuild(), settings, actionType, event.getChannel().getId());
         if (targetChannel == null) {
-            event.reply("Целевой канал для команды /" + actionType.getCommandName() + " не найден. Перенастройте каналы.").setEphemeral(true).queue();
+            event.reply("Не удалось определить канал для отправки кадрового сообщения.").setEphemeral(true).queue();
             return;
         }
         User employee = Objects.requireNonNull(event.getOption("сотрудник")).getAsUser();
@@ -218,13 +216,8 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
 
     private void handlePromotionRequestForm(SlashCommandInteractionEvent event) {
         HrChannelSettings settings = hrChannelSettingsService.findByGuildId(event.getGuild().getId()).orElse(null);
-        if (settings == null) {
-            event.reply("Сначала настройте кадровые каналы через /" + CONFIG_COMMAND + ".").setEphemeral(true).queue();
-            return;
-        }
-        String requestChannelId = hrChannelSettingsService.resolvePromotionRequestChannelId(settings);
-        if (requestChannelId == null || event.getGuild().getTextChannelById(requestChannelId) == null) {
-            event.reply("Канал для запросов на повышение не настроен.").setEphemeral(true).queue();
+        if (resolvePromotionRequestChannel(event.getGuild(), settings, event.getChannel().getId()) == null) {
+            event.reply("Не удалось определить канал для запроса на повышение.").setEphemeral(true).queue();
             return;
         }
         Modal modal = Modal.create(REQUEST_PROMOTION_COMMAND, "Запрос на повышение")
@@ -238,14 +231,9 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
 
     private void submitPromotionRequest(ModalInteractionEvent event) {
         HrChannelSettings settings = hrChannelSettingsService.findByGuildId(event.getGuild().getId()).orElse(null);
-        if (settings == null) {
-            event.reply("Сначала настройте кадровые каналы через /" + CONFIG_COMMAND + ".").setEphemeral(true).queue();
-            return;
-        }
-        String requestChannelId = hrChannelSettingsService.resolvePromotionRequestChannelId(settings);
-        TextChannel targetChannel = event.getGuild().getTextChannelById(requestChannelId);
+        TextChannel targetChannel = resolvePromotionRequestChannel(event.getGuild(), settings, event.getChannel().getId());
         if (targetChannel == null) {
-            event.reply("Канал для запросов на повышение не найден.").setEphemeral(true).queue();
+            event.reply("Не удалось определить канал для запроса на повышение.").setEphemeral(true).queue();
             return;
         }
 
@@ -300,9 +288,135 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
                         Button.secondary("reviewer", trimButtonLabel("Проверил(а): " + memberSummary(reviewer))).asDisabled()
                 ));
         message.editMessageEmbeds(embed.build()).setComponents(rows).queue(
-                success -> callback.reply(approved ? "Запрос одобрен." : "Запрос отклонён.").setEphemeral(true).queue(),
+                success -> {
+                    if (approved) {
+                        sendApprovedPromotionAudit(message, reviewer, callback);
+                    } else {
+                        callback.reply("Запрос отклонён.").setEphemeral(true).queue();
+                    }
+                },
                 error -> callback.reply("Не удалось обновить сообщение с заявкой.").setEphemeral(true).queue()
         );
+    }
+
+
+    private void sendApprovedPromotionAudit(Message requestMessage,
+                                            Member reviewer,
+                                            net.dv8tion.jda.api.interactions.callbacks.IReplyCallback callback) {
+        PromotionRequestPayload payload = extractPromotionRequestPayload(requestMessage);
+        if (payload == null) {
+            callback.reply("Запрос одобрен, но не удалось собрать данные для кадрового сообщения о повышении.")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
+
+        HrChannelSettings settings = hrChannelSettingsService.findByGuildId(requestMessage.getGuild().getId()).orElse(null);
+        TextChannel targetChannel = resolveAuditTargetChannel(
+                requestMessage.getGuild(),
+                settings,
+                HrActionType.PROMOTE,
+                requestMessage.getChannel().getId()
+        );
+        if (targetChannel == null) {
+            callback.reply("Запрос одобрен, но не удалось определить канал для кадрового повышения.")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
+
+        User employee = requestMessage.getJDA().getUserById(payload.userId());
+        if (employee == null) {
+            callback.reply("Запрос одобрен, но пользователь из заявки не найден для кадрового повышения.")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
+
+        Member employeeMember = requestMessage.getGuild().getMemberById(payload.userId());
+        String employeeDisplayName = employeeMember != null ? employeeMember.getEffectiveName() : employee.getName();
+        String requestLink = requestMessage.getJumpUrl();
+        String actionText = "Повышение на " + payload.newRank() + " ранг";
+        EmbedBuilder embed = buildAuditEmbed(
+                reviewer,
+                employee,
+                employeeDisplayName,
+                payload.passport(),
+                requestLink,
+                HrActionType.PROMOTE,
+                actionText
+        );
+        String content = reviewer.getAsMention() + " заполнил(а) кадровый аудит на " + employee.getAsMention();
+        targetChannel.sendMessage(content).setEmbeds(embed.build()).queue(
+                success -> callback.reply("Запрос одобрен, кадровое повышение отправлено в " + targetChannel.getAsMention() + ".")
+                        .setEphemeral(true)
+                        .queue(),
+                error -> callback.reply("Запрос одобрен, но не удалось отправить кадровое повышение в канал.")
+                        .setEphemeral(true)
+                        .queue()
+        );
+    }
+
+    private PromotionRequestPayload extractPromotionRequestPayload(Message requestMessage) {
+        if (requestMessage.getEmbeds().isEmpty()) {
+            return null;
+        }
+        String description = requestMessage.getEmbeds().getFirst().getDescription();
+        if (description == null || description.isBlank()) {
+            return null;
+        }
+        String requesterLine = extractSectionValue(description, "Заполнил(а)");
+        String passport = extractSectionValue(description, "Номер паспорта");
+        String newRank = extractSectionValue(description, "Новый ранг");
+        if (requesterLine == null || passport == null || newRank == null) {
+            return null;
+        }
+        Matcher matcher = USER_MENTION_PATTERN.matcher(requesterLine);
+        if (!matcher.find()) {
+            return null;
+        }
+        return new PromotionRequestPayload(matcher.group(1), passport, newRank);
+    }
+
+    private String extractSectionValue(String description, String title) {
+        String marker = "**" + title + "**\n• ";
+        int start = description.indexOf(marker);
+        if (start < 0) {
+            return null;
+        }
+        int valueStart = start + marker.length();
+        int nextSection = description.indexOf("\n\n**", valueStart);
+        if (nextSection < 0) {
+            nextSection = description.length();
+        }
+        return description.substring(valueStart, nextSection).trim();
+    }
+
+    private TextChannel resolveAuditTargetChannel(Guild guild,
+                                                  HrChannelSettings settings,
+                                                  HrActionType actionType,
+                                                  String fallbackChannelId) {
+        if (settings != null) {
+            String configuredChannelId = hrChannelSettingsService.resolveChannelId(settings, actionType);
+            TextChannel configuredChannel = guild.getTextChannelById(configuredChannelId);
+            if (configuredChannel != null) {
+                return configuredChannel;
+            }
+        }
+        return guild.getTextChannelById(fallbackChannelId);
+    }
+
+    private TextChannel resolvePromotionRequestChannel(Guild guild,
+                                                       HrChannelSettings settings,
+                                                       String fallbackChannelId) {
+        if (settings != null) {
+            String configuredChannelId = hrChannelSettingsService.resolvePromotionRequestChannelId(settings);
+            TextChannel configuredChannel = guild.getTextChannelById(configuredChannelId);
+            if (configuredChannel != null) {
+                return configuredChannel;
+            }
+        }
+        return guild.getTextChannelById(fallbackChannelId);
     }
 
     private EmbedBuilder buildAuditEmbed(Member author,
@@ -422,4 +536,8 @@ public class HrCommandListener extends net.dv8tion.jda.api.hooks.ListenerAdapter
     private String trimButtonLabel(String value) {
         return value.length() <= 80 ? value : value.substring(0, 77) + "...";
     }
+
+    private record PromotionRequestPayload(String userId, String passport, String newRank) {
+    }
 }
+
